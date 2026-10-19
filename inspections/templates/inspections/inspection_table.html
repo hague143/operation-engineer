@@ -1,0 +1,65 @@
+<div class="table-scroll">
+    <table>
+        <thead>
+            <tr>
+                <th>Inspection / Asset</th>
+                <th>Inspection date</th>
+                <th>Evidence</th>
+                <th>Status</th>
+                <th>
+                    <span class="sr-only">Open inspection</span>
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for inspection in inspections %}
+                <tr>
+                    <td>
+                        <a class="table-primary"
+                           href="{% url 'workspace' inspection.pk %}">{{ inspection.reference }}</a>
+                        <span class="table-secondary">{{ inspection.asset.name }}</span>
+                    </td>
+                    <td>
+                        {{ inspection.inspection_date|date:'d M Y' }}<span class="table-secondary">{{ inspection.inspector.get_full_name|default:inspection.inspector.username }}</span>
+                    </td>
+                    <td>
+                        <span class="evidence-count">
+                            <svg>
+                                <use href="#i-photo" />
+                            </svg>{{ inspection.photos.count }} photos</span>
+                            <span class="table-secondary">{{ inspection.findings.count }} findings</span>
+                        </td>
+                        <td>
+                            <span class="badge {{ inspection.status }}">{{ inspection.get_status_display }}</span>
+                        </td>
+                        <td>
+                            <a class="row-arrow"
+                               href="{% url 'workspace' inspection.pk %}"
+                               aria-label="Open {{ inspection.reference }}">
+                                <svg class="arrow-icon diagonal" aria-hidden="true">
+                                    <use href="#i-arrow" />
+                                </svg>
+                            </a>
+                        </td>
+                    </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="5">
+                        <div class="empty-state">
+                            <svg>
+                                <use href="#i-inspect" />
+                            </svg>
+                            <h3>No inspections here yet</h3>
+                            <p>
+                                {% if query or status %}Try another search or filter.{% else %}Create an inspection to start collecting visual evidence.{% endif %}
+                            </p>
+                            {% if is_inspector %}
+                                <a class="btn secondary" href="{% url 'inspection_create' %}">Create inspection</a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

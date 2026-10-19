@@ -1,0 +1,140 @@
+{% extends "inspections/base.html" %}
+{% load static %}
+{% block content %}
+    <a class="back-link" href="{% url 'workspace' inspection.pk %}">
+        <svg class="arrow-icon back" aria-hidden="true">
+            <use href="#i-arrow" />
+        </svg>
+    {{ inspection.reference }} / Visual evidence</a>
+    <div class="page-heading">
+        <div>
+            <div class="eyebrow">HUMAN OBSERVATIONS / {{ inspection.asset.identifier }}</div>
+            <h1>
+                Annotation workspace<span class="heading-dot">.</span>
+            </h1>
+            <p>{{ photo.caption|default:photo.original_filename }}</p>
+        </div>
+        <span class="badge {{ inspection.status }}">{{ inspection.get_status_display }}</span>
+    </div>
+    <div class="editor-layout"
+         id="annotation-editor"
+         data-editable="{{ editable|yesno:'true,false' }}"
+         data-failed="{{ form_failed|yesno:'true,false' }}">
+        <section class="panel editor-canvas-panel">
+            <div class="editor-toolbar">
+                <span>
+                    <svg class="icon">
+                        <use href="#i-photo" />
+                    </svg>
+                {{ photo.width }} × {{ photo.height }}</span>
+                <span>{% if editable %}Drag to draw · Select a finding to edit{% else %}Read-only evidence{% endif %}</span>
+            </div>
+            <div class="image-stage">
+                <img id="evidence-image"
+                     src="{% url 'photo_image' photo.pk %}"
+                     alt="{{ photo.caption|default:photo.original_filename }}">
+                <svg id="annotation-overlay"
+                     viewBox="0 0 1000 1000"
+                     preserveAspectRatio="none"
+                     aria-label="Photograph annotation rectangles">
+                </svg>
+            </div>
+            <div class="editor-legend">
+                <span>
+                    <i class="severity-dot low">
+                    </i>Low</span>
+                    <span>
+                        <i class="severity-dot medium">
+                        </i>Medium</span>
+                        <span>
+                            <i class="severity-dot high">
+                            </i>High</span>
+                            <small>Preliminary severity · Not a measurement tool</small>
+                        </div>
+                        <div id="editor-feedback" class="editor-feedback" role="status">
+                            {% if editable %}Draw a rectangle around a visible indication, or use the normalized coordinate fields.{% else %}Select a finding to inspect its details.{% endif %}
+                        </div>
+                        {% if editable %}
+                            <details class="coordinate-help">
+                                <summary>Keyboard-accessible rectangle entry</summary>
+                                <p>Values range from 0 to 1, relative to the photograph. The rectangle must stay inside the image.</p>
+                                <div class="coordinate-inputs">
+                                    {% for coord in 'xywh' %}
+                                        <label>{{ coord|upper }}<input type="number"
+       min="0"
+       max="1"
+       step="0.001"
+       data-coordinate="{{ coord }}"
+       aria-label="{% if coord == 'w' %}Rectangle width{% elif coord == 'h' %}Rectangle height{% else %}Rectangle {{ coord }}{% endif %}">
+                                        </label>
+                                    {% endfor %}
+                                </div>
+                            </details>
+                        {% endif %}
+                    </section>
+                    <aside>
+                        <section class="panel padded">
+                            <div class="section-line">
+                                <h2 id="finding-heading">{% if editable %}New finding{% else %}Finding details{% endif %}</h2>
+                                {% if editable %}
+                                    <button type="button" class="text-link" id="new-finding">+ New</button>
+                                {% endif %}
+                            </div>
+                            <form method="post" id="annotation-form" data-dirty-form>
+                                {% csrf_token %}
+                                <input type="hidden"
+                                       name="annotation_id"
+                                       id="annotation-id"
+                                       value="{{ selected_id }}">{{ form.as_p }}{% if editable %}
+                                <button type="button" class="btn secondary full" id="redraw">Redraw rectangle</button>
+                                <button type="submit" class="btn primary full save-finding">
+                                    Save finding
+                                    <svg>
+                                        <use href="#i-check" />
+                                    </svg>
+                                </button>
+{% endif %}
+</form>
+</section>
+<section class="panel padded">
+    <h2>
+        Saved findings <span class="count-tag">{{ annotations_data|length }}</span>
+    </h2>
+    <div id="saved-findings">
+        {% for annotation in annotations_data %}
+            <button type="button" class="saved-finding" data-select="{{ annotation.id }}">
+                <span class="severity-dot {{ annotation.severity }}"></span>
+                <span>
+                    <strong>{{ annotation.reference }}</strong>
+                    <small>{{ annotation.category|title }} · {{ annotation.severity|title }}</small>
+                </span>
+                <span>
+                    <svg class="arrow-icon diagonal" aria-hidden="true">
+                        <use href="#i-arrow" />
+                    </svg>
+                </span>
+            </button>
+        {% empty %}
+            <p class="muted">No findings saved for this photograph.</p>
+        {% endfor %}
+    </div>
+    {% if editable %}
+        {% for annotation in annotations_data %}
+            <form method="post"
+                  action="{% url 'delete_annotation' annotation.id %}"
+                  class="delete-finding-form"
+                  data-for="{{ annotation.id }}"
+                  data-confirm="Delete {{ annotation.reference }}? This action is recorded in the audit trail."
+                  hidden>
+                {% csrf_token %}
+                <button class="delete-text">Delete {{ annotation.reference }}</button>
+            </form>
+        {% endfor %}
+    {% endif %}
+</section>
+<div class="note-small">Record visible conditions only. Ordinary photographs cannot establish crack depth, wall thickness, structural safety, or real-world dimensions.</div>
+</aside>
+</div>{{ annotations_data|json_script:'annotations-data' }}{% endblock %}
+{% block scripts %}
+    <script src="{% static 'inspections/editor.js' %}" defer></script>
+{% endblock %}

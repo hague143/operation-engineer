@@ -1,0 +1,211 @@
+{% extends "inspections/base.html" %}
+{% block content %}
+    <a class="back-link" href="{% url 'inspection_list' %}">
+        <svg class="arrow-icon back" aria-hidden="true">
+            <use href="#i-arrow" />
+        </svg>
+    Inspections</a>
+    <div class="page-heading">
+        <div>
+            <div class="eyebrow">INSPECTION WORKSPACE / {{ inspection.asset.identifier }}</div>
+            <h1>
+                {{ inspection.reference }} <span class="badge {{ inspection.status }}">{{ inspection.get_status_display }}</span>
+            </h1>
+            <p>{{ inspection.asset.name }} · {{ inspection.asset.location }}</p>
+        </div>
+        <div class="button-group">
+            {% if editable %}
+                <a class="btn secondary"
+                   href="{% url 'inspection_edit' inspection.pk %}">
+                    <svg>
+                        <use href="#i-edit" />
+                    </svg>Edit details</a>
+            {% endif %}
+            <a class="btn primary" href="{% url 'report' inspection.pk %}">
+                <svg>
+                    <use href="#i-report" />
+                </svg>View report</a>
+            </div>
+        </div>
+        <div class="workflow-strip">
+            <span class="complete">01 <strong>Asset & scope</strong>
+            </span>
+            <span class="{% if inspection.photos.exists %}complete{% endif %}">02 <strong>Visual evidence</strong>
+            </span>
+            <span class="{% if inspection.status != 'draft' %}complete{% endif %}">03 <strong>Review</strong>
+            </span>
+            <span class="{% if inspection.status == 'approved' %}complete{% endif %}">04 <strong>Report</strong>
+            </span>
+        </div>
+        {% if inspection.status == "changes" %}
+            <div class="notice warning">Changes requested. Read the reviewer’s explanation in the audit history, update the evidence, and resubmit.</div>
+        {% elif not editable %}
+            <div class="notice">This inspection is read-only. {% if reviewable %}Review all photographs and findings before recording a decision.{% else %}Its saved evidence and history remain available below.{% endif %}
+            </div>
+        {% endif %}
+        <div class="workspace-layout">
+            <div>
+                <section class="panel padded">
+                    <div class="section-line">
+                        <h2>Inspection scope</h2>
+                        <span class="small-label">{{ inspection.inspection_date|date:'d M Y' }}</span>
+                    </div>
+                    <p class="prose">{{ inspection.scope|linebreaksbr }}</p>
+                    {% if inspection.general_notes %}
+                        <h3>General notes</h3>
+                        <p class="prose">{{ inspection.general_notes|linebreaksbr }}</p>
+                    {% endif %}
+                    <div class="inspector-line">
+                        <span class="avatar light">{{ inspection.inspector.username|first|upper }}</span>
+                        <div>
+                            <strong>{{ inspection.inspector.get_full_name|default:inspection.inspector.username }}</strong>
+                            <small>Assigned inspector</small>
+                        </div>
+                    </div>
+                </section>
+                <section class="panel padded">
+                    <div class="section-line">
+                        <div>
+                            <h2>
+                                Visual evidence <span class="count-tag">{{ photos|length }}</span>
+                            </h2>
+                            <p class="muted">
+                                {% if editable %}Open a photograph to record a finding.{% else %}Open a photograph to inspect its saved annotations.{% endif %}
+                            </p>
+                        </div>
+                        <svg class="icon">
+                            <use href="#i-photo" />
+                        </svg>
+                    </div>
+                    <div class="photo-grid">
+                        {% for photo in photos %}
+                            <article class="photo-card">
+                                <a href="{% url 'annotation_editor' photo.pk %}">
+                                    <img src="{% url 'photo_image' photo.pk %}"
+                                         alt="{{ photo.caption|default:photo.original_filename }}"
+                                         loading="lazy">
+                                    <div class="photo-card-info">
+                                        <strong>{{ photo.caption|default:photo.original_filename }}</strong>
+                                        <span>{{ photo.annotations.count }} findings <span>
+                                            <svg class="arrow-icon diagonal" aria-hidden="true">
+                                                <use href="#i-arrow" />
+                                            </svg>
+                                            </span>
+                                        </span>
+                                    </div>
+                                </a>
+                                {% if editable %}
+                                    <form method="post"
+                                          action="{% url 'delete_photo' photo.pk %}"
+                                          data-confirm="Delete this photograph and all of its findings?">
+                                        {% csrf_token %}
+                                        <button class="delete-text">Delete photograph</button>
+                                    </form>
+                                {% endif %}
+                            </article>
+                        {% empty %}
+                            <div class="empty-state">
+                                <svg>
+                                    <use href="#i-photo" />
+                                </svg>
+                                <h3>Your evidence starts here</h3>
+                                <p>Add photographs to document visible conditions.</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    {% if editable %}
+                        <form class="upload-area"
+                              method="post"
+                              action="{% url 'upload_photos' inspection.pk %}"
+                              enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <h3>Add inspection photographs</h3>
+                            <p>JPEG or PNG · 10 MB each · Up to 8 per batch · 20 MP maximum</p>
+                            {{ upload_form.as_p }}<button class="btn secondary" type="submit">
+                            <svg>
+                                <use href="#i-plus" />
+                            </svg>Upload photographs
+                            </button>
+                        </form>
+                    {% endif %}
+                </section>
+                <section class="panel padded">
+                    <h2>
+                        Recorded findings <span class="count-tag">{{ findings|length }}</span>
+                    </h2>
+                    {% for finding in findings %}
+                        <article class="finding-detail">
+                            <div class="section-line">
+                                <h3>
+                                    <a href="{% url 'annotation_editor' finding.photo_id %}">{{ finding.reference }} · {{ finding.get_category_display }}</a>
+                                </h3>
+                                <span class="badge severity-{{ finding.severity }}">{{ finding.get_severity_display }} · Preliminary</span>
+                            </div>
+                            <p class="prose">{{ finding.observation|linebreaksbr }}</p>
+                            <div class="follow-up">
+                                <strong>Recommended follow-up</strong>
+                                <p class="prose">{{ finding.recommendation|linebreaksbr }}</p>
+                            </div>
+                        </article>
+                    {% empty %}
+                        <p class="muted">
+                            {% if inspection.no_visible_defects %}No visible defects observed in the supplied photographs. This does not imply the entire asset is defect-free.{% else %}No findings recorded yet.{% endif %}
+                        </p>
+                    {% endfor %}
+                </section>
+            </div>
+            <aside class="workspace-aside">
+                {% if editable %}
+                    <section class="panel padded">
+                        <div class="eyebrow">NEXT STEP</div>
+                        <h2>Ready for review?</h2>
+                        <p class="muted">Submission locks editing until a reviewer requests changes. At least one photograph is required.</p>
+                        <form method="post" action="{% url 'submit' inspection.pk %}">
+                            {% csrf_token %}{{ submit_form.non_field_errors }}{{ submit_form.version }}{{ submit_form.version.errors }}{% if not findings %}
+                            <div class="checkbox-field">
+                                {{ submit_form.no_visible_defects }}<label for="{{ submit_form.no_visible_defects.id_for_label }}">{{ submit_form.no_visible_defects.label }}</label>
+                            </div>
+                {% endif %}
+                <button class="btn primary full">
+                    Submit for review
+                    <svg>
+                        <use href="#i-arrow" />
+                    </svg>
+                </button>
+            </form>
+        </section>
+{% endif %}
+{% if reviewable %}
+    <section class="panel padded review-panel">
+        <div class="eyebrow">INDEPENDENT REVIEW</div>
+        <h2>Record your decision</h2>
+        <p class="muted">Review every photograph, finding, and previous comment. A change request must explain what needs updating.</p>
+        <form method="post" action="{% url 'review' inspection.pk %}">
+            {% csrf_token %}{{ review_form.as_p }}<button class="btn primary full">Save review decision</button>
+        </form>
+    </section>
+{% endif %}
+<section class="panel padded">
+    <h2>Audit trail</h2>
+    <p class="muted">Append-only application history</p>
+    <ol class="audit-list">
+        {% for event in events %}
+            <li>
+                <strong>{{ event.action }}</strong>
+                <small>{{ event.actor.get_full_name|default:event.actor.username }}
+                    <br>
+                {{ event.created_at|date:'d M Y · H:i' }} UTC</small>
+                {% if event.comment %}
+                    <p class="prose">{{ event.comment|linebreaksbr }}</p>
+                {% endif %}
+                {% if event.new_status %}
+                    <span class="badge {{ event.new_status }}">{{ event.get_new_status_display|default:event.new_status }}</span>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ol>
+</section>
+<div class="note-small">Observations describe supplied visual evidence. Preliminary severity requires appropriate engineering verification.</div>
+</aside>
+</div>
+{% endblock %}

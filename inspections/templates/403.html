@@ -1,0 +1,14 @@
+{% extends "inspections/base.html" %}
+{% block content %}
+    <div class="page-heading">
+        <div>
+            <div class="eyebrow">ACCESS RESTRICTED</div>
+            <h1>This action is unavailable.</h1>
+            <p>{{ exception|default:'Your account does not have permission to perform this action.' }}</p>
+        </div>
+    </div>
+    <section class="panel padded">
+        <p class="prose">Inspection evidence can be edited only by its assigned inspector while it is Draft or Changes Requested. Independent review requires a different user with the Reviewer role.</p>
+        <a class="btn secondary" href="{% url 'dashboard' %}">Return to overview</a>
+    </section>
+{% endblock %}

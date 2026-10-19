@@ -1,0 +1,53 @@
+{% extends "inspections/base.html" %}
+{% load static %}
+{% block title %}Sign in · AssetInspect{% endblock %}
+{% block shell %}
+    <main id="main" class="login-layout">
+        <section class="login-story">
+            <a class="brand" href="{% url 'login' %}">
+                <img src="{% static 'inspections/mark.svg' %}"
+                     width="42"
+                     height="42"
+                     alt="">
+                <span>Asset<span class="brand-light">Inspect</span>
+                    <small>VISUAL INFRASTRUCTURE INSPECTION</small>
+                </span>
+            </a>
+            <div>
+                <span class="eyebrow">FROM EVIDENCE TO UNDERSTANDING</span>
+                <h1>
+                    Every detail.
+                    <br>
+                    A clearer picture.
+                </h1>
+                <p>Organize visual evidence, document observations, and bring a second set of eyes to every inspection.</p>
+                <div class="login-steps">
+                    <span>01 &nbsp; Capture</span>
+                    <span>02 &nbsp; Annotate</span>
+                    <span>03 &nbsp; Review</span>
+                </div>
+            </div>
+            <small>Independent portfolio demonstration · Human observations, engineering verification.</small>
+        </section>
+        <section class="login-form">
+            <div class="login-card">
+                <span class="eyebrow">YOUR INSPECTION WORKSPACE</span>
+                <h2>Welcome back.</h2>
+                <p class="muted">Sign in to continue your inspections.</p>
+                <form method="post">
+                    {% csrf_token %}{{ form.as_p }}{% if next %}
+                    <input type="hidden" name="next" value="{{ next }}">
+{% endif %}
+<button class="btn primary full" type="submit">
+    Sign in
+    <svg>
+        <use href="#i-arrow" />
+    </svg>
+</button>
+</form>
+<div class="login-help">Demo accounts are created locally by the setup command. Use your configured inspector or reviewer password.</div>
+<small class="muted">This tool does not certify structural integrity or compliance with inspection standards.</small>
+</div>
+</section>
+</main>
+{% endblock %}

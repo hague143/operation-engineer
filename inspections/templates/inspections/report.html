@@ -1,0 +1,99 @@
+{% extends "inspections/base.html" %}
+{% block content %}
+    <a class="back-link" href="{% url 'workspace' inspection.pk %}">
+        <svg class="arrow-icon back" aria-hidden="true">
+            <use href="#i-arrow" />
+        </svg>
+    Inspection workspace</a>
+    <div class="page-heading">
+        <div>
+            <div class="eyebrow">SAVED RECORD / REPORT PREVIEW</div>
+            <h1>
+                Inspection report<span class="heading-dot">.</span>
+            </h1>
+            <p>Generated from saved evidence and human observations.</p>
+        </div>
+        <div class="button-group">
+            <a class="btn secondary" href="{% url 'report_csv' inspection.pk %}">Export findings CSV</a>
+            <a class="btn primary" href="{% url 'report_pdf' inspection.pk %}">
+                <svg>
+                    <use href="#i-download" />
+                </svg>Download PDF</a>
+            </div>
+        </div>
+        <article class="report-paper">
+            <div class="report-brand">
+                Asset<span>Inspect</span>
+                <small>VISUAL INFRASTRUCTURE INSPECTION</small>
+            </div>
+            {% if inspection.status != "approved" %}
+                <div class="draft-warning">DRAFT — NOT APPROVED</div>
+            {% endif %}
+            <h2>{{ inspection.reference }}</h2>
+            <span class="badge {{ inspection.status }}">{{ inspection.get_status_display }}</span>
+            <div class="report-meta">
+                <div>
+                    <span>ASSET</span>
+                    <strong>{{ inspection.asset.identifier }} · {{ inspection.asset.name }}</strong>
+                    <p>
+                        {{ inspection.asset.get_asset_type_display }}
+                        <br>
+                        {{ inspection.asset.location }}
+                    </p>
+                </div>
+                <div>
+                    <span>INSPECTION</span>
+                    <strong>{{ inspection.inspection_date|date:'d F Y' }}</strong>
+                    <p>
+                        {{ inspection.inspector.get_full_name|default:inspection.inspector.username }}
+                        <br>
+                        Assigned inspector
+                    </p>
+                </div>
+            </div>
+            <h3>Scope & general notes</h3>
+            <p class="prose">{{ inspection.scope|linebreaksbr }}</p>
+            <p class="prose">{{ inspection.general_notes|linebreaksbr }}</p>
+            <h3>Finding summary</h3>
+            <p>{{ photos|length }} photographs · {{ findings|length }} recorded findings</p>
+            {% if inspection.no_visible_defects %}
+                <p>No visible defects observed in the supplied photographs. This does not imply the entire asset is defect-free.</p>
+            {% endif %}
+            {% for photo in photos %}
+                <section class="report-photo">
+                    <h3>Photograph {{ forloop.counter }} · {{ photo.caption|default:photo.original_filename }}</h3>
+                    <div class="image-stage">
+                        <img src="{% url 'photo_image' photo.pk %}"
+                             alt="{{ photo.caption|default:photo.original_filename }}">
+                        <svg viewBox="0 0 1 1"
+                             preserveAspectRatio="none"
+                             class="report-overlay"
+                             aria-label="Saved finding rectangles">
+                            {% for a in photo.annotations.all %}
+                                <rect x="{{ a.x }}" y="{{ a.y }}" width="{{ a.width }}" height="{{ a.height }}" class="annotation-rect {{ a.severity }}" vector-effect="non-scaling-stroke" />
+                                <text x="{{ a.x }}" y="{{ a.y }}" font-size="0.022" fill="white" stroke="#122e35" stroke-width="0.008" paint-order="stroke">{{ a.reference }} · {{ a.get_severity_display }}</text>
+                            {% endfor %}
+                        </svg>
+                    </div>
+                    {% for a in photo.annotations.all %}
+                        <div class="finding-detail">
+                            <h4>
+                                {{ a.reference }} · {{ a.get_category_display }} <span class="badge severity-{{ a.severity }}">{{ a.get_severity_display }} · Preliminary</span>
+                            </h4>
+                            <p class="prose">{{ a.observation|linebreaksbr }}</p>
+                            <strong>Recommended follow-up</strong>
+                            <p class="prose">{{ a.recommendation|linebreaksbr }}</p>
+                        </div>
+                    {% endfor %}
+                </section>
+            {% endfor %}
+            <h3>Review & audit history</h3>
+            {% for event in events %}
+                <div class="report-event">
+                    <strong>{{ event.action }}</strong> · {{ event.actor.get_full_name|default:event.actor.username }}<small>{{ event.created_at|date:'d M Y · H:i' }} UTC</small>
+                    <p class="prose">{{ event.comment|linebreaksbr }}</p>
+                </div>
+            {% endfor %}
+            <div class="report-disclaimer">{{ disclaimer }}</div>
+        </article>
+{% endblock %}

@@ -1,0 +1,202 @@
+{% extends "inspections/base.html" %}
+{% block content %}
+    <div class="page-heading">
+        <div>
+            <div class="eyebrow">YOUR WORKSPACE, AT A GLANCE</div>
+            <h1>
+                Inspection overview<span class="heading-dot">.</span>
+            </h1>
+            <p>From visual evidence to informed decisions.</p>
+        </div>
+        {% if is_inspector %}
+            <a class="btn primary" href="{% url 'inspection_create' %}">
+                <svg>
+                    <use href="#i-plus" />
+                </svg>New inspection</a>
+        {% endif %}
+    </div>
+    <section class="overview-banner">
+        <div>
+            <span class="banner-kicker">
+                <span class="live-dot"></span> A MORE COMPLETE PICTURE</span>
+                <h2>
+                    Know your assets.
+                    <br>
+                    See every detail.
+                </h2>
+                <p>
+                    Capture evidence. Document findings.
+                    <br>
+                    Keep every review connected.
+                </p>
+                <a href="{% url 'asset_list' %}">Explore your asset register <svg>
+                    <use href="#i-arrow" />
+                    </svg>
+                </a>
+            </div>
+            <svg class="infrastructure-art"
+                 viewBox="0 0 570 230"
+                 fill="none"
+                 aria-hidden="true">
+                <defs>
+                <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse">
+                <path d="M28 0H0V28" stroke="#37656c" stroke-width=".4" />
+                </pattern>
+                </defs>
+                <path fill="url(#grid)" d="M0 0h570v230H0z" />
+                <g stroke="#80c2bc" stroke-width="1.3">
+                <path d="m52 180 216-105 230 89-215 67L52 180Z" opacity=".35" />
+                <ellipse cx="196" cy="98" rx="57" ry="22" />
+                <path d="M139 98v67c0 30 114 30 114 0V98M139 165c0 30 114 30 114 0M147 96v64m12-54v63m80-63v63M196 76V61m-12 0h24M144 134c17 17 93 17 108 0" />
+                <path d="m296 153 72 25 87-40V76l-72-27-87 42v62Zm0-62 72 26 87-41m-87 41v61M306 94l77 27v45m-62-66v62m30-51v62m25-62 69-33m-69 57 69-33m-149 29 72 26 87-41" />
+                <path d="M254 131h17v57h26m0-8h-17v-57h-26M332 68V31m24 25V22m-24 9 24-9M99 156v-36h39m-39 44H89v-54h49" />
+                </g>
+                <g stroke="#38d5bf" stroke-width="1.5">
+                <rect x="170" y="114" width="48" height="36" rx="2" />
+                <path d="M170 121v-7h7m34 0h7v7m0 22v7h-7m-34 0h-7v-7" />
+                <path d="m218 131 38-23h36" />
+                <circle cx="296" cy="108" r="3" fill="#38d5bf" />
+                </g>
+                <g fill="#8bc4bf" font-family="monospace" font-size="9">
+                <text x="277" y="99">VISUAL EVIDENCE</text>
+                <text x="115" y="210">ASSET REGISTER / HUMAN OBSERVATIONS</text>
+                </g>
+            </svg>
+            <span class="banner-corner">FIELD NOTES → VERIFIED WORKFLOW</span>
+        </section>
+        <section class="stats-grid" aria-label="Workspace metrics">
+            <a class="stat-card" href="{% url 'asset_list' %}">
+                <div class="stat-label">
+                    Total assets<svg>
+                    <use href="#i-asset" />
+                    </svg>
+                </div>
+                <div class="stat-value">{{ asset_count|stringformat:'02d' }}</div>
+                <span>Infrastructure in your register <span>
+                    <svg class="arrow-icon diagonal" aria-hidden="true">
+                        <use href="#i-arrow" />
+                    </svg>
+                    </span>
+                </span>
+            </a>
+            <a class="stat-card" href="{% url 'inspection_list' %}">
+                <div class="stat-label">
+                    Total inspections<svg>
+                    <use href="#i-inspect" />
+                    </svg>
+                </div>
+                <div class="stat-value">{{ inspection_count|stringformat:'02d' }}</div>
+                <span>Recorded inspection workflows <span>
+                    <svg class="arrow-icon diagonal" aria-hidden="true">
+                        <use href="#i-arrow" />
+                    </svg>
+                    </span>
+                </span>
+            </a>
+            <a class="stat-card amber-stat"
+               href="{% url 'inspection_list' %}?status=submitted">
+                <div class="stat-label">
+                    Awaiting review<svg>
+                    <use href="#i-clock" />
+                    </svg>
+                </div>
+                <div class="stat-value">{{ submitted_count|stringformat:'02d' }}</div>
+                <span>Ready for a second set of eyes <span>
+                    <svg class="arrow-icon diagonal" aria-hidden="true">
+                        <use href="#i-arrow" />
+                    </svg>
+                    </span>
+                </span>
+            </a>
+            <a class="stat-card teal-stat"
+               href="{% url 'inspection_list' %}?status=approved">
+                <div class="stat-label">
+                    Approved<svg>
+                    <use href="#i-check" />
+                    </svg>
+                </div>
+                <div class="stat-value">{{ approved_count|stringformat:'02d' }}</div>
+                <span>Reviewed and approved <span>
+                    <svg class="arrow-icon diagonal" aria-hidden="true">
+                        <use href="#i-arrow" />
+                    </svg>
+                    </span>
+                </span>
+            </a>
+        </section>
+        <section class="panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>Recent inspections</h2>
+                    <p>Your latest field evidence and review activity.</p>
+                </div>
+                <a class="text-link" href="{% url 'inspection_list' %}">View all inspections <span>
+                    <svg class="arrow-icon diagonal" aria-hidden="true">
+                        <use href="#i-arrow" />
+                    </svg>
+                    </span>
+                </a>
+            </div>
+            {% include "inspections/inspection_table.html" with inspections=recent %}
+        </section>
+        <div class="dashboard-bottom">
+            <section class="panel">
+                <div class="panel-heading">
+                    <div>
+                        <h2>Findings at a glance</h2>
+                        <p>Manually recorded · Preliminary severity</p>
+                    </div>
+                    <span class="small-label">VISUAL OBSERVATIONS</span>
+                </div>
+                <div class="findings-overview">
+                    <div class="severity-summary">
+                        {% for item in severity_stats %}
+                            <div>
+                                <span class="severity-dot {{ item.key }}"></span>
+                                <strong>{{ item.count }}</strong>
+                                <span>{{ item.label }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <div class="category-chart">
+                        {% for item in category_stats %}
+                            <div class="category-row">
+                                <span>{{ item.label }}</span>
+                                <div class="bar-track">
+                                    <span style="width:{% if inspection_count %} {% widthratio item.count inspection_count 65 %} {% else %}0{% endif %}%">
+                                    </span>
+                                </div>
+                                <strong>{{ item.count }}</strong>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </section>
+            <section class="panel activity-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h2>Latest activity</h2>
+                        <p>A traceable record of every step.</p>
+                    </div>
+                    <svg class="icon muted">
+                        <use href="#i-clock" />
+                    </svg>
+                </div>
+                <div class="activity-list">
+                    {% for event in recent_events %}
+                        <a class="activity-item"
+                           href="{% url 'workspace' event.inspection_id %}">
+                            <span class="activity-dot"></span>
+                            <div>
+                                <strong>{{ event.action }}</strong>
+                                <p>{{ event.inspection.reference }} · {{ event.actor.get_full_name|default:event.actor.username }}</p>
+                                <small>{{ event.created_at|timesince }} ago</small>
+                            </div>
+                        </a>
+                    {% empty %}
+                        <p class="empty-inline">Create your first inspection to start an audit trail.</p>
+                    {% endfor %}
+                </div>
+            </section>
+        </div>
+{% endblock %}

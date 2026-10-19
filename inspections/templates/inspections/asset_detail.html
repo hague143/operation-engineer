@@ -1,0 +1,38 @@
+{% extends "inspections/base.html" %}
+{% block content %}
+    <a class="back-link" href="{% url 'asset_list' %}">
+        <svg class="arrow-icon back" aria-hidden="true">
+            <use href="#i-arrow" />
+        </svg>
+    Asset register</a>
+    <div class="page-heading">
+        <div>
+            <div class="eyebrow">{{ asset.identifier }} / {{ asset.get_asset_type_display }}</div>
+            <h1>{{ asset.name }}</h1>
+            <p>
+                <svg class="icon">
+                    <use href="#i-pin" />
+                </svg>
+                {{ asset.location }}
+            </p>
+        </div>
+        {% if is_inspector %}
+            <div class="button-group">
+                <a class="btn secondary" href="{% url 'asset_edit' asset.pk %}">Edit asset</a>
+                <a class="btn primary"
+                   href="{% url 'inspection_create' %}?asset={{ asset.pk }}">New inspection</a>
+            </div>
+        {% endif %}
+    </div>
+    <section class="panel padded">
+        <h2>About this asset</h2>
+        <p class="prose">{{ asset.description|default:'No description recorded.'|linebreaksbr }}</p>
+        <p class="muted">Registered {{ asset.created_at|date:'d M Y' }} · Metadata is locked when an associated inspection is Submitted or Approved.</p>
+    </section>
+    <section class="panel">
+        <div class="panel-heading">
+            <h2>Inspection history</h2>
+        </div>
+        {% include "inspections/inspection_table.html" %}
+    </section>
+{% endblock %}

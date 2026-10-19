@@ -1,0 +1,17 @@
+{% extends "inspections/base.html" %}
+{% block content %}
+    <div class="page-heading">
+        <div>
+            <div class="eyebrow">A SECOND SET OF EYES</div>
+            <h1>
+                Review queue<span class="heading-dot">.</span>
+            </h1>
+            <p>Submitted inspections awaiting your independent review.</p>
+        </div>
+        <span class="badge submitted">{{ inspections|length }} awaiting review</span>
+    </div>
+    <section class="panel">
+        {% include "inspections/inspection_table.html" %}
+    </section>
+    <div class="note-small">Your own inspections are excluded. Submitted evidence remains locked while you review.</div>
+{% endblock %}

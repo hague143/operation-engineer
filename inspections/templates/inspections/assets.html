@@ -1,0 +1,68 @@
+{% extends "inspections/base.html" %}
+{% block content %}
+    <div class="page-heading">
+        <div>
+            <div class="eyebrow">KNOW YOUR INFRASTRUCTURE</div>
+            <h1>
+                Asset register<span class="heading-dot">.</span>
+            </h1>
+            <p>A single place for your assets and their inspection history.</p>
+        </div>
+        {% if is_inspector %}
+            <a class="btn primary" href="{% url 'asset_create' %}">
+                <svg>
+                    <use href="#i-plus" />
+                </svg>Register asset</a>
+        {% endif %}
+    </div>
+    <form class="filter-bar panel" method="get">
+        <label class="search-field">
+            <svg>
+                <use href="#i-search" />
+            </svg>
+            <input name="q"
+                   value="{{ query }}"
+                   placeholder="Search assets or locations…"
+                   aria-label="Search assets">
+        </label>
+        <button class="btn secondary">Search register</button>
+    </form>
+    <div class="asset-grid">
+        {% for asset in assets %}
+            <a class="asset-card" href="{% url 'asset_detail' asset.pk %}">
+                <div class="asset-visual {{ asset.asset_type }}">
+                    <svg>
+                        <use href="#i-asset" />
+                    </svg>
+                    <span>{{ asset.get_asset_type_display }}</span>
+                    <span class="asset-visual-ref">{{ asset.identifier }}</span>
+                </div>
+                <div class="asset-card-content">
+                    <div class="eyebrow">{{ asset.identifier }}</div>
+                    <h2>{{ asset.name }}</h2>
+                    <p>
+                        <svg class="icon">
+                            <use href="#i-pin" />
+                        </svg>{{ asset.location }}
+                    </p>
+                    <div class="asset-card-footer">
+                        <span>View asset & inspection history</span>
+                        <span>
+                            <svg class="arrow-icon diagonal" aria-hidden="true">
+                                <use href="#i-arrow" />
+                            </svg>
+                        </span>
+                    </div>
+                </div>
+            </a>
+        {% empty %}
+            <div class="panel empty-state">
+                <h2>No assets found</h2>
+                <p>Register your first asset to begin an inspection.</p>
+                {% if is_inspector %}
+                    <a class="btn primary" href="{% url 'asset_create' %}">Register asset</a>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+{% endblock %}

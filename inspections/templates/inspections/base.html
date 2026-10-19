@@ -1,0 +1,190 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#101f2c">
+        <title>{% block title %}AssetInspect · Visual Infrastructure Inspection{% endblock %}</title>
+        <link rel="icon"
+              href="{% static 'inspections/mark.svg' %}"
+              type="image/svg+xml">
+        <link rel="stylesheet" href="{% static 'inspections/app.css' %}">
+        <script src="{% static 'inspections/app.js' %}" defer></script>
+        {% block head %}{% endblock %}
+    </head>
+    <body>
+        <svg class="svg-library"
+             xmlns="http://www.w3.org/2000/svg"
+             aria-hidden="true">
+            <defs>
+            <symbol id="i-grid" viewBox="0 0 24 24">
+            <rect x="3" y="3" width="7" height="7" rx="1.5" />
+            <rect x="14" y="3" width="7" height="7" rx="1.5" />
+            <rect x="3" y="14" width="7" height="7" rx="1.5" />
+            <rect x="14" y="14" width="7" height="7" rx="1.5" />
+            </symbol>
+            <symbol id="i-asset" viewBox="0 0 24 24">
+            <path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5" />
+            </symbol>
+            <symbol id="i-inspect" viewBox="0 0 24 24">
+            <rect x="5" y="4" width="14" height="17" rx="2" />
+            <path d="M9 3h6v4H9zM9 12h6m-6 4h4" />
+            </symbol>
+            <symbol id="i-check" viewBox="0 0 24 24">
+            <path d="m6 12 4 4 8-8" />
+            <circle cx="12" cy="12" r="9" />
+            </symbol>
+            <symbol id="i-report" viewBox="0 0 24 24">
+            <path d="M14 3H5v18h14V8l-5-5Zm0 0v5h5M9 13h6m-6 4h6" />
+            </symbol>
+            <symbol id="i-plus" viewBox="0 0 24 24">
+            <path d="M12 5v14M5 12h14" />
+            </symbol>
+            <symbol id="i-arrow" viewBox="0 0 24 24">
+            <path d="M5 12h14m-5-5 5 5-5 5" />
+            </symbol>
+            <symbol id="i-search" viewBox="0 0 24 24">
+            <circle cx="10" cy="10" r="6" />
+            <path d="m15 15 5 5" />
+            </symbol>
+            <symbol id="i-photo" viewBox="0 0 24 24">
+            <rect x="3" y="4" width="18" height="16" rx="2" />
+            <circle cx="8" cy="9" r="1.5" />
+            <path d="m3 17 5-5 4 4 4-6 5 7" />
+            </symbol>
+            <symbol id="i-clock" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3 2" />
+            </symbol>
+            <symbol id="i-pin" viewBox="0 0 24 24">
+            <path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z" />
+            <circle cx="12" cy="10" r="2.5" />
+            </symbol>
+            <symbol id="i-download" viewBox="0 0 24 24">
+            <path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" />
+            </symbol>
+            <symbol id="i-edit" viewBox="0 0 24 24">
+            <path d="m15 4 5 5M4 20l5-1L21 7l-5-5L4 14v6Z" />
+            </symbol>
+            </defs>
+        </svg>
+        <a class="skip-link" href="#main">Skip to content</a>
+        {% block shell %}
+            <aside class="sidebar" id="sidebar">
+                <a class="brand" href="{% url 'dashboard' %}">
+                    <img src="{% static 'inspections/mark.svg' %}"
+                         width="35"
+                         height="35"
+                         alt="">
+                    <span>Asset<span class="brand-light">Inspect</span>
+                        <small>VISUAL ASSET INTELLIGENCE</small>
+                    </span>
+                </a>
+                <div class="workspace-label">
+                    <span class="workspace-icon">AI</span>
+                    <div>
+                        Inspection workspace<small>Local development <span class="live-dot"></span>
+                        </small>
+                    </div>
+                </div>
+                <div class="nav-label">WORKSPACE</div>
+                <nav aria-label="Main navigation">
+                    <a href="{% url 'dashboard' %}"
+                       class="{% if page == 'dashboard' %}active{% endif %}">
+                        <svg>
+                            <use href="#i-grid" />
+                        </svg>Overview</a>
+                        <a href="{% url 'asset_list' %}"
+                           class="{% if page == 'assets' %}active{% endif %}">
+                            <svg>
+                                <use href="#i-asset" />
+                            </svg>Asset register</a>
+                            <a href="{% url 'inspection_list' %}"
+                               class="{% if page == 'inspections' %}active{% endif %}">
+                                <svg>
+                                    <use href="#i-inspect" />
+                                </svg>Inspections</a>
+                                {% if is_reviewer %}
+                                    <a href="{% url 'review_queue' %}"
+                                       class="{% if page == 'reviews' %}active{% endif %}">
+                                        <svg>
+                                            <use href="#i-check" />
+                                        </svg>Review queue <span class="nav-count">{{ queue_count }}</span>
+                                    </a>
+                                {% endif %}
+                                <a href="{% url 'report_list' %}"
+                                   class="{% if page == 'reports' %}active{% endif %}">
+                                    <svg>
+                                        <use href="#i-report" />
+                                    </svg>Reports</a>
+                                    {% if user.is_staff %}
+                                        <a href="{% url 'admin:index' %}">
+                                            <svg>
+                                                <use href="#i-asset" />
+                                            </svg>Administration</a>
+                                    {% endif %}
+                                </nav>
+                                <div class="sidebar-bottom">
+                                    <div class="portfolio-note">
+                                        <span class="live-dot"></span>INDEPENDENT PORTFOLIO<small>Visual evidence. Human judgment.
+                                            <br>
+                                        For demonstration purposes.</small>
+                                    </div>
+                                    <div class="user-block">
+                                        <span class="avatar">{{ user.username|first|upper }}</span>
+                                        <div>
+                                            <strong>{{ user.get_full_name|default:user.username }}</strong>
+                                            <small>
+                                                {% if is_inspector and is_reviewer %}Inspector · Reviewer{% elif is_reviewer %}Reviewer{% elif is_inspector %}Inspector{% else %}Member{% endif %}
+                                            </small>
+                                        </div>
+                                        <form method="post" action="{% url 'logout' %}">
+                                            {% csrf_token %}
+                                            <button class="logout" title="Sign out" aria-label="Sign out">
+                                                <svg class="arrow-icon" aria-hidden="true">
+                                                    <use href="#i-arrow" />
+                                                </svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </aside>
+                            <div class="app-shell">
+                                <header class="topbar">
+                                    <div class="breadcrumbs">
+                                        <button class="mobile-menu"
+                                                aria-label="Toggle navigation"
+                                                aria-expanded="false"
+                                                aria-controls="sidebar">☰</button>
+                                        <span>Workspace</span>
+                                        <span class="crumb-slash">/</span>
+                                        <strong>
+                                            {% if page == "dashboard" %}Overview{% elif page == "assets" %}Asset register{% elif page == "reviews" %}Review queue{% elif page == "reports" %}Reports{% else %}Inspections{% endif %}
+                                        </strong>
+                                    </div>
+                                    <div class="topbar-right">
+                                        <span class="local-label">
+                                            <span class="live-dot"></span>Local workspace</span>
+                                            <span class="topbar-date">{% now "d M Y" %}</span>
+                                        </div>
+                                    </header>
+                                    <main id="main" class="main-content">
+                                        {% if messages %}
+                                            <div class="messages" role="status">
+                                                {% for message in messages %}
+                                                    <div class="message {{ message.tags }}">{{ message }}</div>
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                        {% block content %}{% endblock %}
+                                        <footer class="app-footer">
+                                            <span>AssetInspect <span class="muted">/</span> Visual infrastructure inspection</span>
+                                            <span>Independent portfolio demonstration</span>
+                                        </footer>
+                                    </main>
+                                </div>
+        {% endblock %}
+        {% block scripts %}{% endblock %}
+    </body>
+</html>

@@ -1,0 +1,43 @@
+{% extends "inspections/base.html" %}
+{% block content %}
+    <div class="page-heading">
+        <div>
+            <div class="eyebrow">EVIDENCE, CONNECTED</div>
+            <h1>
+                Inspections<span class="heading-dot">.</span>
+            </h1>
+            <p>Manage observations from first photograph to final review.</p>
+        </div>
+        {% if is_inspector %}
+            <a class="btn primary" href="{% url 'inspection_create' %}">
+                <svg>
+                    <use href="#i-plus" />
+                </svg>New inspection</a>
+        {% endif %}
+    </div>
+    <section class="panel">
+        <form class="filter-bar" method="get">
+            <label class="search-field">
+                <svg>
+                    <use href="#i-search" />
+                </svg>
+                <input name="q"
+                       value="{{ query }}"
+                       placeholder="Search reference or asset…"
+                       aria-label="Search inspections">
+            </label>
+            <label class="sr-only" for="status">Status</label>
+            <select name="status" id="status">
+                <option value="">All statuses</option>
+                {% for value,label in statuses %}
+                    <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <button class="btn secondary">Apply filters</button>
+            {% if query or status %}
+                <a class="text-link" href="{% url 'inspection_list' %}">Clear</a>
+            {% endif %}
+        </form>
+        {% include "inspections/inspection_table.html" %}
+    </section>
+{% endblock %}
