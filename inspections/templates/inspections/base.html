@@ -84,7 +84,7 @@
                 <div class="workspace-label">
                     <span class="workspace-icon">AI</span>
                     <div>
-                        Inspection workspace<small>Local development <span class="live-dot"></span>
+                        Inspection workspace<small>{% if vercel_demo %}Disposable demo{% else %}Local development{% endif %} <span class="live-dot"></span>
                         </small>
                     </div>
                 </div>
@@ -165,11 +165,16 @@
                                     </div>
                                     <div class="topbar-right">
                                         <span class="local-label">
-                                            <span class="live-dot"></span>Local workspace</span>
+                                            <span class="live-dot"></span>{% if vercel_demo %}Temporary Vercel demo{% else %}Local workspace{% endif %}</span>
                                             <span class="topbar-date">{% now "d M Y" %}</span>
                                         </div>
                                     </header>
                                     <main id="main" class="main-content">
+                                        {% if vercel_demo %}
+                                            <div class="notice warning" role="note">
+                                                <strong>Temporary Vercel demo.</strong> Changes and uploaded photographs are stored only in this server instance. They may reset or differ between instances. Use synthetic test data only; use the local app for permanent saving.
+                                            </div>
+                                        {% endif %}
                                         {% if messages %}
                                             <div class="messages" role="status">
                                                 {% for message in messages %}

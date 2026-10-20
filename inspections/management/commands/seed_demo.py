@@ -111,7 +111,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--create-demo-users",
             action="store_true",
-            help="Explicitly create local demo accounts; never for production.",
+            help="Explicitly create local/disposable demo accounts; never for real production data.",
         )
 
     @transaction.atomic

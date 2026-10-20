@@ -12,3 +12,5 @@ test-results/
 .coverage
 .pytest_cache/
 .DS_Store
+.vercel/
+.vercel-demo-template/

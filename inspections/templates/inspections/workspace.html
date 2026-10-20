@@ -120,7 +120,7 @@
                               enctype="multipart/form-data">
                             {% csrf_token %}
                             <h3>Add inspection photographs</h3>
-                            <p>JPEG or PNG · 10 MB each · Up to 8 per batch · 20 MP maximum</p>
+                            <p>JPEG or PNG · {{ upload_file_mb }} MB each · {{ upload_batch_mb }} MB total per batch · Up to 8 files · 20 MP maximum</p>
                             {{ upload_form.as_p }}<button class="btn secondary" type="submit">
                             <svg>
                                 <use href="#i-plus" />

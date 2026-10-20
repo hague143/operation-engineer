@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "django",
+  "buildCommand": "python scripts/build_vercel.py",
+  "functions": {
+    "assetinspect/wsgi.py": {
+      "includeFiles": ".vercel-demo-template/**"
+    }
+  }
+}

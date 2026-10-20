@@ -34,6 +34,9 @@
                 <span class="eyebrow">YOUR INSPECTION WORKSPACE</span>
                 <h2>Welcome back.</h2>
                 <p class="muted">Sign in to continue your inspections.</p>
+                {% if vercel_demo %}
+                    <div class="notice warning" role="note"><strong>Temporary Vercel demo.</strong> Sample accounts are demo.inspector and demo.reviewer. Use the passwords configured for this deployment. Changes/uploads may reset or differ between server instances.</div>
+                {% endif %}
                 <form method="post">
                     {% csrf_token %}{{ form.as_p }}{% if next %}
                     <input type="hidden" name="next" value="{{ next }}">
@@ -45,7 +48,7 @@
     </svg>
 </button>
 </form>
-<div class="login-help">Demo accounts are created locally by the setup command. Use your configured inspector or reviewer password.</div>
+<div class="login-help">{% if vercel_demo %}Demo data is generated for this disposable deployment. For permanent local saving, follow the repository README.{% else %}Demo accounts are created locally by the setup command. Use your configured inspector or reviewer password.{% endif %}</div>
 <small class="muted">This tool does not certify structural integrity or compliance with inspection standards.</small>
 </div>
 </section>

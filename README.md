@@ -21,6 +21,10 @@ This is a demonstration tool, not a certified engineering assessment system. It 
 
 Use **Python 3.12** (tested on 3.12.14) and Git. Exact tested dependency versions are in `requirements.txt`: Django 5.2.18 (LTS), Pillow 12.3.0, ReportLab 4.5.1, and python-dotenv 1.2.4, plus pinned transitive dependencies. SQLite ships with Python. The browser suite is optional and uses the separately pinned `requirements-dev.txt`.
 
+## Testing on Vercel
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the required four environment variables and Redeploy steps. The repository supports an explicit **temporary Vercel demo** with built synthetic data, exact deployment hostnames, secure login, static assets, authenticated private photos, and exports. Vercel demo changes/uploads can reset or differ between instances; local development below keeps permanent SQLite/filesystem saving. Never upload your local `.env`, database, or private media to fix a deployment error.
+
 ## Windows PowerShell setup
 
 From the directory containing your projects:

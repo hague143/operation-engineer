@@ -30,3 +30,23 @@ window.addEventListener("beforeunload", (event) => {
     event.returnValue = "";
   }
 });
+
+// Vercel rejects oversized requests before Django can render a helpful error.
+// Keep the same batch limit in client validation and the server upload form.
+document
+  .querySelectorAll('input[type="file"][data-max-total-bytes]')
+  .forEach((input) => {
+    input.addEventListener("change", () => {
+      const limit = Number(input.dataset.maxTotalBytes);
+      const total = [...input.files].reduce(
+        (bytes, file) => bytes + file.size,
+        0,
+      );
+      input.setCustomValidity(
+        total > limit
+          ? `Choose photographs totaling ${Math.floor(limit / 1024 / 1024)} MB or less for this upload.`
+          : "",
+      );
+      if (total > limit) input.reportValidity();
+    });
+  });

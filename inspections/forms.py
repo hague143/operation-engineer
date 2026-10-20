@@ -3,6 +3,7 @@ import warnings
 from pathlib import PurePath
 
 from django import forms
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from PIL import Image, ImageOps, UnidentifiedImageError
@@ -47,12 +48,19 @@ class MultipleImageField(forms.FileField):
             data = [data]
         if len(data) > MAX_BATCH:
             raise ValidationError(f"Upload at most {MAX_BATCH} photographs at a time.")
+        if (
+            sum(getattr(upload, "size", 0) or 0 for upload in data)
+            > settings.PHOTO_MAX_BATCH_BYTES
+        ):
+            raise ValidationError(
+                f"This environment allows at most {settings.PHOTO_MAX_BATCH_BYTES // (1024 * 1024)} MB of photographs per upload batch."
+            )
         cleaned = []
         for upload in data:
             super().clean(upload, initial)
-            if upload.size > MAX_FILE_BYTES:
+            if upload.size > settings.PHOTO_MAX_BYTES:
                 raise ValidationError(
-                    f"{upload.name}: images must be 10 MB or smaller."
+                    f"{upload.name}: images must be {settings.PHOTO_MAX_BYTES // (1024 * 1024)} MB or smaller."
                 )
             try:
                 with warnings.catch_warnings():
@@ -108,6 +116,12 @@ class MultipleImageField(forms.FileField):
 
 
 class UploadForm(forms.Form):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["images"].widget.attrs[
+            "data-max-total-bytes"
+        ] = settings.PHOTO_MAX_BATCH_BYTES
+
     images = MultipleImageField(
         label="Inspection photographs",
         widget=MultipleFileInput(attrs={"accept": "image/jpeg,image/png"}),
