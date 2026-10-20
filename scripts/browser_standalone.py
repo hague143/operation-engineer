@@ -29,6 +29,14 @@ def role(page, name):
     wait_page(page, "Inspection overview.")
 
 
+def complete_qa(page, role_name):
+    form = page.locator("form[data-form=qa]")
+    for checkbox in form.locator("input[type=checkbox]").all():
+        checkbox.check()
+    form.get_by_role("button", name=f"Save {role_name} QA").click()
+    page.locator("#feedback").get_by_text("QA checklist saved.", exact=False).wait_for()
+
+
 def alignment(page, expected, width):
     page.set_viewport_size({"width": width, "height": 1000})
     page.locator("#evidence-image").evaluate("img => img.decode()")
@@ -251,6 +259,7 @@ def main():
         expect(page.locator("[data-action=select-finding]")).to_have_count(1)
         page.set_viewport_size({"width": 1440, "height": 1100})
         page.goto(workspace_url)
+        complete_qa(page, "inspector")
         page.get_by_role("button", name="Submit for review", exact=True).click()
         page.locator(".status-heading .badge").get_by_text(
             "Submitted", exact=True
@@ -287,12 +296,14 @@ def main():
         assert (
             "Clarify the surface location" in page.locator(".audit-list").inner_text()
         )
+        complete_qa(page, "inspector")
         page.get_by_role("button", name="Submit for review", exact=True).click()
         page.locator(".status-heading .badge").get_by_text(
             "Submitted", exact=True
         ).wait_for()
         role(page, "reviewer")
         page.goto(workspace_url)
+        complete_qa(page, "reviewer")
         page.get_by_label("Decision", exact=True).select_option("approve")
         page.get_by_label("Review comment", exact=True).fill(
             "DEMO: Reviewed the clarified synthetic evidence."
@@ -393,6 +404,7 @@ def main():
         restored.locator("#feedback").get_by_text(
             "Confirm that no visible defects were observed", exact=False
         ).wait_for()
+        complete_qa(restored, "inspector")
         restored.get_by_label(
             "No visible defects observed in the supplied photographs", exact=True
         ).check()

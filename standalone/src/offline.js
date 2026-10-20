@@ -133,7 +133,9 @@
       at: now(),
     });
   }
-  function touch(i) {
+  function touch(i, invalidate = true) {
+    if (invalidate) i.qa = emptyQa();
+    i.assessment ||= referenceAssessment();
     i.version++;
     i.updatedAt = now();
   }
@@ -404,7 +406,7 @@
           at: now(),
         });
     });
-    return s;
+    return seedJobTools(s);
   }
   async function openStorage() {
     return new Promise((resolve, reject) => {
@@ -452,8 +454,9 @@
           let failure = null;
           request.onsuccess = () => {
             try {
-              if (request.result) state = request.result;
+              if (request.result) state = validateState(request.result);
               change();
+              state = validateState(state);
               store.put(state, "workspace");
             } catch (error) {
               failure = error;
@@ -465,7 +468,10 @@
           tx.onabort = () =>
             reject(failure || tx.error || new Error("Save cancelled."));
         });
-      else change();
+      else {
+        change();
+        state = validateState(state);
+      }
       dirty = false;
       $("#form-dialog").close();
       channel?.postMessage("updated");
@@ -678,10 +684,10 @@
       <div class="workflow-strip"><span class="complete">01 <strong>Asset & scope</strong></span><span class="${ps.length ? "complete" : ""}">02 <strong>Visual evidence</strong></span><span class="${i.status !== "draft" ? "complete" : ""}">03 <strong>Review</strong></span><span class="${i.status === "approved" ? "complete" : ""}">04 <strong>Report</strong></span></div>
       ${i.status === "changes" ? `<div class="notice warning">Changes requested. Read the reviewer’s comments in the audit trail, update the findings, and resubmit.</div>` : !edit ? `<div class="notice">Evidence is read-only. ${reviewable(i) ? "Review all photographs, findings, and previous comments before deciding." : "Saved observations and report exports are available below."}</div>` : ""}
       <div class="workspace-layout"><div><section class="panel padded"><h2>Inspection scope</h2><p class="prose">${paragraphs(i.scope)}</p>${i.notes ? `<h3>General notes</h3><p class="prose">${paragraphs(i.notes)}</p>` : ""}</section>
-      <section class="panel padded"><div class="section-line"><div><h2>Visual evidence <span class="count-tag">${ps.length}</span></h2><p class="muted">Open a photograph to ${edit ? "annotate visible indications" : "view saved annotations"}.</p></div>${icon("photo")}</div><div class="photo-grid">${ps.length ? ps.map((p) => `<article class="photo-card"><a href="#/photo/${p.id}"><img src="${p.dataUrl}" alt="${esc(p.caption || p.name)}"><div class="photo-card-info"><strong>${esc(p.caption || p.name)}</strong><span>${annotations(p.id).length} findings ${icon("arrow")}</span></div></a>${edit ? button("delete-photo", "Delete photograph", `data-id="${p.id}"`, "delete-text") : ""}</article>`).join("") : `<div class="empty-state">${icon("photo")}<h3>Your evidence starts here</h3><p>Upload a test image or add a synthetic schematic below.</p></div>`}</div>
-      ${edit ? `<form class="upload-area" data-form="upload" data-id="${id}" data-version="${i.version}"><h3>Add inspection photographs</h3><p>JPEG/PNG · 10 MB each · 8 files per batch · 20 MP maximum</p><div class="input-row"><label for="images">Inspection photographs</label><input type="file" id="images" name="images" accept="image/jpeg,image/png" multiple required></div><div class="input-row"><label for="caption">Caption (optional)</label><input id="caption" name="caption" maxlength="300" placeholder="Describe the supplied evidence…"></div><div class="button-group"><button class="btn secondary">${icon("plus")} Upload photographs</button>${button("synthetic", "Add synthetic example", `data-id="${id}"`, "secondary")}</div></form>` : ""}</section>
-      <section class="panel padded"><h2>Recorded findings <span class="count-tag">${fs.length}</span></h2>${fs.length ? fs.map((f) => `<article class="finding-detail"><div class="section-line"><h3><a href="#/photo/${f.photoId}">${esc(f.reference)} · ${CATEGORIES[f.category]}</a></h3><span class="badge severity-${f.severity}">${SEVERITIES[f.severity]} · Preliminary</span></div><p class="prose">${paragraphs(f.observation)}</p><div class="follow-up"><strong>Recommended follow-up</strong><p class="prose">${paragraphs(f.recommendation)}</p></div></article>`).join("") : `<p class="muted">${i.noDefects ? "No visible defects observed in the supplied photographs. This does not imply the entire asset is defect-free." : "No findings recorded yet."}</p>`}</section></div>
-      <aside class="workspace-aside">${edit ? `<section class="panel padded"><div class="eyebrow">NEXT STEP</div><h2>Ready for review?</h2><p class="muted">Submission locks editing. At least one photograph is required.</p><form data-form="submit" data-id="${id}" data-version="${i.version}">${!fs.length ? `<div class="checkbox-field"><input type="checkbox" id="no-defects" name="noDefects"><label for="no-defects">No visible defects observed in the supplied photographs</label></div>` : ""}<button class="btn primary full">Submit for review ${icon("arrow")}</button></form></section>` : ""}
+      ${assessmentPanel(i)}${measurementReport(i)}<section class="panel padded"><div class="section-line"><div><h2>Visual evidence <span class="count-tag">${ps.length}</span></h2><p class="muted">Open a photograph to ${edit ? "annotate visible indications" : "view saved annotations"}.</p></div>${icon("photo")}</div><div class="photo-grid">${ps.length ? ps.map((p) => `<article class="photo-card"><a href="#/photo/${p.id}"><img src="${p.dataUrl}" alt="${esc(p.caption || p.name)}"><div class="photo-card-info"><strong>${esc(p.caption || p.name)}</strong><span>${EVIDENCE_TYPES[p.evidenceType || "photo"]} · ${annotations(p.id).length} records ${icon("arrow")}</span></div></a>${edit ? button("delete-photo", "Delete photograph", `data-id="${p.id}"`, "delete-text") : ""}</article>`).join("") : `<div class="empty-state">${icon("photo")}<h3>Your evidence starts here</h3><p>Upload a test image or add a synthetic schematic below.</p></div>`}</div>
+      ${edit ? `<form class="upload-area" data-form="upload" data-id="${id}" data-version="${i.version}"><h3>Add inspection photographs</h3><p>JPEG/PNG · 10 MB each · 8 files per batch · 20 MP maximum</p><div class="input-row"><label for="images">Inspection photographs</label><input type="file" id="images" name="images" accept="image/jpeg,image/png" multiple required></div><div class="input-row"><label for="evidence-type">Evidence type</label><select id="evidence-type" name="evidenceType">${options(EVIDENCE_TYPES, "photo")}</select></div><div class="input-row"><label for="caption">Caption (optional)</label><input id="caption" name="caption" maxlength="300" placeholder="Describe the supplied evidence…"></div><div class="button-group"><button class="btn secondary">${icon("plus")} Upload photographs</button>${button("synthetic", "Add synthetic example", `data-id="${id}"`, "secondary")}${button("synthetic-pid", "Add synthetic P&ID", `data-id="${id}"`, "secondary")}</div></form>` : ""}</section>
+      <section class="panel padded"><h2>Recorded findings <span class="count-tag">${fs.length}</span></h2>${fs.length ? fs.map((f) => `<article class="finding-detail"><div class="section-line"><h3><a href="#/photo/${f.photoId}">${esc(f.reference)} · ${recordTitle(f)}</a></h3><span class="badge severity-${recordClass(f)}">${severityText(f)}${isFeature(f) ? "" : " · Preliminary"}</span></div><p class="note-small">${DISCIPLINES[f.discipline] || "General"} · ${COMPONENTS[f.component] || "Unspecified component"}${f.tag ? " · Tag: " + esc(f.tag) : ""}</p><p class="prose">${paragraphs(f.observation)}</p><div class="follow-up"><strong>Recommended follow-up</strong><p class="prose">${paragraphs(f.recommendation)}</p></div></article>`).join("") : `<p class="muted">${i.noDefects ? "No visible defects observed in the supplied photographs. This does not imply the entire asset is defect-free." : "No findings recorded yet."}</p>`}</section></div>
+      <aside class="workspace-aside">${qaPanel(i)}${edit ? `<section class="panel padded"><div class="eyebrow">NEXT STEP</div><h2>Ready for review?</h2><p class="muted">Submission locks editing. At least one photograph is required.</p><form data-form="submit" data-id="${id}" data-version="${i.version}">${!defects(id).length ? `<div class="checkbox-field"><input type="checkbox" id="no-defects" name="noDefects"><label for="no-defects">No visible defects observed in the supplied photographs</label></div>` : ""}<button class="btn primary full">Submit for review ${icon("arrow")}</button></form></section>` : ""}
       ${reviewable(i) ? `<section class="panel padded review-panel"><div class="eyebrow">SIMULATED INDEPENDENT REVIEW</div><h2>Record your decision</h2><p class="muted">Review all saved evidence and comments. Change requests require an explanation.</p><form data-form="review" data-id="${id}" data-version="${i.version}"><p><label for="decision">Decision</label><select id="decision" name="decision"><option value="approve">Approve inspection</option><option value="changes">Request changes</option></select></p><p><label for="comment">Review comment</label><textarea id="comment" name="comment" rows="4" maxlength="20000" placeholder="Record your review and any required changes…"></textarea></p><button class="btn primary full">Save review decision</button></form></section>` : ""}
       <section class="panel padded"><h2>Audit trail</h2><p class="muted">Saved local demonstration history</p>${audit(i)}</section><p class="note-small">Demo role switching is simulated in this browser. The Django implementation provides server-side authentication and authorization.</p></aside></div>`
     );
@@ -713,7 +719,7 @@
         )
         .join(
           "",
-        )}<small>Preliminary severity · Not a measurement tool</small></div><div class="editor-feedback" id="editor-feedback" role="status">${edit ? "Drag around a visible indication, or enter normalized coordinates below." : "Select a saved finding to inspect its details."}</div>${edit ? `<details class="coordinate-help"><summary>Keyboard-accessible rectangle entry</summary><p>Image fractions from 0 to 1. X/Y specify the top-left corner.</p><div class="coordinate-inputs">${["x", "y", "width", "height"].map((key) => `<label>${key.toUpperCase()}<input type="number" aria-label="Rectangle ${key}" data-coordinate="${key}" min="0" max="1" step="0.001"></label>`).join("")}</div></details>` : ""}</section><aside><section class="panel padded"><div class="section-line"><h2 id="finding-heading">${edit ? "New finding" : "Finding details"}</h2>${edit ? button("new-finding", "+ New", "", "text-link") : ""}</div><form id="annotation-form" data-form="finding" data-photo="${id}" data-version="${i.version}"><input type="hidden" name="findingId"><div class="field"><label for="category">Defect category</label><select name="category" id="category" required ${edit ? "" : "disabled"}><option value="">Choose a category</option>${options(CATEGORIES)}</select></div><div class="field"><label for="severity">Preliminary severity</label><select name="severity" id="severity" required ${edit ? "" : "disabled"}><option value="">Choose severity</option>${options(SEVERITIES)}</select></div><div class="field"><label for="observation">Observation</label><textarea name="observation" id="observation" maxlength="10000" required ${edit ? "" : "disabled"} placeholder="Describe only what is visible…"></textarea></div><div class="field"><label for="recommendation">Recommended follow-up</label><textarea name="recommendation" id="recommendation" maxlength="10000" required ${edit ? "" : "disabled"} placeholder="Describe the recommended engineering verification…"></textarea></div>${edit ? button("redraw", "Redraw rectangle", "", "secondary full") + `<button class="btn primary full save-finding">Save finding ${icon("check")}</button>` : ""}</form></section><section class="panel padded"><h2>Saved findings <span class="count-tag">${as.length}</span></h2><div id="saved-findings">${as.map((f) => `<button type="button" class="saved-finding" data-action="select-finding" data-id="${f.id}"><i class="severity-dot ${f.severity}"></i><span><strong>${esc(f.reference)}</strong><small>${CATEGORIES[f.category]} · ${SEVERITIES[f.severity]}</small></span>${icon("arrow")}</button>`).join("") || `<p class="muted">No findings saved for this photograph.</p>`}</div>${edit ? `<button type="button" id="delete-finding" class="delete-text" data-action="delete-finding" hidden>Delete selected finding</button>` : ""}</section><p class="note-small">Record visible conditions only. Ordinary photographs do not establish crack depth, wall thickness, structural safety, or real-world dimensions.</p></aside></div>`
+        )}<span><i class="severity-dot feature"></i>Feature</span><small>Preliminary severity · Not a measurement tool</small></div><div class="editor-feedback" id="editor-feedback" role="status">${edit ? "Drag around a visible indication, or enter normalized coordinates below." : "Select a saved finding to inspect its details."}</div>${edit ? `<details class="coordinate-help"><summary>Keyboard-accessible rectangle entry</summary><p>Image fractions from 0 to 1. X/Y specify the top-left corner.</p><div class="coordinate-inputs">${["x", "y", "width", "height"].map((key) => `<label>${key.toUpperCase()}<input type="number" aria-label="Rectangle ${key}" data-coordinate="${key}" min="0" max="1" step="0.001"></label>`).join("")}</div></details>` : ""}</section><aside><section class="panel padded"><div class="section-line"><h2 id="finding-heading">${edit ? "New finding" : "Finding details"}</h2>${edit ? button("new-finding", "+ New", "", "text-link") : ""}</div><form id="annotation-form" data-form="finding" data-photo="${id}" data-version="${i.version}"><input type="hidden" name="findingId">${annotationMetadata(edit)}<div class="field"><label for="category">Defect category</label><select name="category" id="category" required ${edit ? "" : "disabled"}><option value="">Choose a category</option>${options(CATEGORIES)}</select></div><div class="field"><label for="severity">Preliminary severity</label><select name="severity" id="severity" required ${edit ? "" : "disabled"}><option value="">Choose severity</option>${options(SEVERITIES)}</select></div><div class="field"><label for="observation">Observation</label><textarea name="observation" id="observation" maxlength="10000" required ${edit ? "" : "disabled"} placeholder="Describe only what is visible…"></textarea></div><div class="field"><label for="recommendation">Recommended follow-up</label><textarea name="recommendation" id="recommendation" maxlength="10000" required ${edit ? "" : "disabled"} placeholder="Describe the recommended engineering verification…"></textarea></div>${edit ? button("redraw", "Redraw rectangle", "", "secondary full") + `<button class="btn primary full save-finding">Save finding ${icon("check")}</button>` : ""}</form></section><section class="panel padded"><h2>Saved findings <span class="count-tag">${as.length}</span></h2><div id="saved-findings">${as.map((f) => `<button type="button" class="saved-finding" data-action="select-finding" data-id="${f.id}"><i class="severity-dot ${recordClass(f)}"></i><span><strong>${esc(f.reference)}</strong><small>${recordTitle(f)} · ${severityText(f)}</small></span>${icon("arrow")}</button>`).join("") || `<p class="muted">No findings saved for this photograph.</p>`}</div>${edit ? `<button type="button" id="delete-finding" class="delete-text" data-action="delete-finding" hidden>Delete selected finding</button>` : ""}</section><p class="note-small">Record visible conditions only. Ordinary photographs do not establish crack depth, wall thickness, structural safety, or real-world dimensions.</p></aside></div>`
     );
   }
   function reportPage(id) {
@@ -735,7 +741,7 @@
         button("csv", "Export findings CSV", `data-id="${id}"`, "secondary") +
           button("print", `${icon("download")} Print / Save PDF`),
       ) +
-      `<article class="report-paper"><div class="report-brand">Asset<span>Inspect</span><small>VISUAL INFRASTRUCTURE INSPECTION</small></div>${i.status !== "approved" ? `<div class="draft-warning">DRAFT — NOT APPROVED</div>` : ""}<h2 class="offline-report-title">${esc(i.reference)}</h2>${badge(i.status)}<p class="seed-mark">OFFLINE PORTFOLIO DEMONSTRATION · SIMULATED REVIEW ROLES</p><div class="report-meta"><div><span>ASSET</span><strong>${esc(a.identifier)} · ${esc(a.name)}</strong><p>${TYPES[a.type]}<br>${esc(a.location)}</p></div><div><span>INSPECTION</span><strong>${date(i.date)}</strong><p>Alex Morgan<br>Assigned demo inspector</p></div></div><h3>Scope & general notes</h3><p class="prose">${paragraphs(i.scope)}</p><p class="prose">${paragraphs(i.notes)}</p><h3>Finding summary</h3><p>${ps.length} photographs · ${fs.length} recorded findings</p><p>${Object.entries(
+      `<article class="report-paper"><div class="report-brand">Asset<span>Inspect</span><small>VISUAL INFRASTRUCTURE INSPECTION</small></div>${i.status !== "approved" ? `<div class="draft-warning">DRAFT — NOT APPROVED</div>` : ""}<h2 class="offline-report-title">${esc(i.reference)}</h2>${badge(i.status)}<p class="seed-mark">OFFLINE PORTFOLIO DEMONSTRATION · SIMULATED REVIEW ROLES</p><div class="report-meta"><div><span>ASSET</span><strong>${esc(a.identifier)} · ${esc(a.name)}</strong><p>${TYPES[a.type]}<br>${esc(a.location)}</p></div><div><span>INSPECTION</span><strong>${date(i.date)}</strong><p>Alex Morgan<br>Assigned demo inspector</p></div></div><h3>Scope & general notes</h3><p class="prose">${paragraphs(i.scope)}</p><p class="prose">${paragraphs(i.notes)}</p><h3>Finding summary</h3><p>${ps.length} evidence images · ${defects(id).length} defect indications · ${fs.filter(isFeature).length} identified features</p><p>${Object.entries(
         SEVERITIES,
       )
         .map(
@@ -753,17 +759,17 @@
             )
               .map(
                 (f) =>
-                  `<rect x="${f.x * p.width}" y="${f.y * p.height}" width="${f.width * p.width}" height="${f.height * p.height}" stroke="${COLORS[f.severity]}"/><text style="font-size:${p.width * 0.022}px" x="${Math.max(2, Math.min(f.x * p.width, p.width * 0.75))}" y="${Math.max(p.width * 0.025, f.y * p.height - p.width * 0.008)}">${esc(f.reference)} · ${SEVERITIES[f.severity]}</text>`,
+                  `<rect x="${f.x * p.width}" y="${f.y * p.height}" width="${f.width * p.width}" height="${f.height * p.height}" stroke="${recordColor(f)}"/><text style="font-size:${p.width * 0.022}px" x="${Math.max(2, Math.min(f.x * p.width, p.width * 0.75))}" y="${Math.max(p.width * 0.025, f.y * p.height - p.width * 0.008)}">${esc(f.reference)} · ${severityText(f)}</text>`,
               )
               .join("")}</svg></div>${annotations(p.id)
               .map(
                 (f) =>
-                  `<div class="finding-detail"><h4>${esc(f.reference)} · ${CATEGORIES[f.category]} <span class="badge severity-${f.severity}">${SEVERITIES[f.severity]} · Preliminary</span></h4><p class="prose">${paragraphs(f.observation)}</p><strong>Recommended follow-up</strong><p class="prose">${paragraphs(f.recommendation)}</p></div>`,
+                  `<div class="finding-detail"><h4>${esc(f.reference)} · ${recordTitle(f)} <span class="badge severity-${recordClass(f)}">${severityText(f)}${isFeature(f) ? "" : " · Preliminary"}</span></h4><p class="note-small">${DISCIPLINES[f.discipline] || "General"} · ${COMPONENTS[f.component] || "Unspecified component"}${f.tag ? " · Tag: " + esc(f.tag) : ""}</p><p class="prose">${paragraphs(f.observation)}</p><strong>Recommended follow-up</strong><p class="prose">${paragraphs(f.recommendation)}</p></div>`,
               )
               .join("")}</section>`,
         )
         .join("")}
-      <h3>Review & audit history</h3>${state.events
+      ${jobReport(i)}<h3>Review & audit history</h3>${state.events
         .filter((e) => e.inspectionId === id)
         .map(
           (e) =>
@@ -787,6 +793,8 @@
   function render() {
     editor?.observer?.disconnect();
     editor = null;
+    geometryView?.dispose();
+    geometryView = null;
     const [route, id] = location.hash
       .replace(/^#\/?/, "")
       .split("?")[0]
@@ -799,6 +807,8 @@
       ["assets", "Asset register", "asset"],
       ["inspections", "Inspections", "inspect"],
       ...(actor === "reviewer" ? [["reviews", "Review queue", "check"]] : []),
+      ["analytics", "Analysis & worklist", "grid"],
+      ["geometry", "3D / point-cloud lab", "asset"],
       ["reports", "Reports", "report"],
       ["guide", "Demo guide", "clock"],
     ];
@@ -819,7 +829,11 @@
                     ? editorPage(id)
                     : key === "report"
                       ? reportPage(id)
-                      : guidePage();
+                      : key === "analytics"
+                        ? analyticsPage()
+                        : key === "geometry"
+                          ? geometryPage()
+                          : guidePage() + jobGuide();
     } catch (error) {
       content =
         heading("RECORD UNAVAILABLE", "Open another record", error.message) +
@@ -836,7 +850,11 @@
     $("#app").innerHTML =
       `<aside class="sidebar" id="sidebar"><a class="brand" href="#/overview">${$("link[rel=icon]") ? `<img src="${$("link[rel=icon]").href}" width="35" height="35" alt="">` : ""}<span>Asset<span class="brand-light">Inspect</span><small>VISUAL INFRASTRUCTURE INSPECTION</small></span></a><div class="workspace-label"><span class="workspace-icon">AI</span><div>Recruiter demo<small><span class="live-dot"></span> Offline · One file</small></div></div><div class="nav-label">WORKSPACE</div><nav aria-label="Main navigation">${nav.map(([link, label, name]) => `<a href="#/${link}" class="${current === link ? "active" : ""}">${icon(name)}${label}${link === "reviews" ? `<span class="nav-count">${visible().filter((i) => reviewable(i)).length}</span>` : ""}</a>`).join("")}</nav><div class="sidebar-bottom"><div class="portfolio-note"><span class="live-dot"></span>INDEPENDENT PORTFOLIO<small>Visual evidence. Human judgment.<br>Browser-only role simulation.</small><button type="button" data-action="backup">Export backup</button><button type="button" data-action="restore">Restore backup</button></div><div class="user-block"><span class="avatar">${person().name[0]}</span><div><strong>${person().name}</strong><small>${person().role} · Demo account</small></div></div></div></aside>
       <div class="app-shell"><header class="topbar"><div class="breadcrumbs"><button type="button" class="mobile-menu" data-action="menu" aria-label="Toggle navigation" aria-expanded="false">☰</button><span>Portfolio</span><span class="crumb-slash">/</span><strong>${nav.find((n) => n[0] === current)?.[1] || "Workspace"}</strong></div><div class="topbar-right"><label class="sr-only" for="demo-role">Demo account</label><select id="demo-role" class="role-select" aria-label="Demo account"><option value="inspector" ${actor === "inspector" ? "selected" : ""}>Inspector · Alex Morgan</option><option value="reviewer" ${actor === "reviewer" ? "selected" : ""}>Reviewer · Jordan Lee</option></select></div></header><main id="main" class="main-content"><div class="offline-ribbon"><div><strong>Interactive offline portfolio demo</strong><span>Roles are simulated. ${db ? "Changes save in this browser only." : "Temporary session: local storage unavailable."} No installation or Internet needed.</span></div><div class="offline-toolbar">${button("share", `${icon("download")} Download shareable HTML`, "", "secondary")}<a class="btn secondary" href="#/guide">Quick guide</a></div></div>${storageMessage ? `<div class="offline-storage-warning">${esc(storageMessage)}</div>` : ""}<div id="page-content">${content}</div><footer class="app-footer"><span>AssetInspect / Visual infrastructure inspection</span><span>Independent portfolio demonstration · ${db ? "Saved locally" : "Temporary session"}</span></footer></main></div>`;
-    if (key === "photo" && $("#annotation-overlay")) initEditor(id);
+    if (key === "photo" && $("#annotation-overlay")) {
+      initEditor(id);
+      updateFindingFields();
+    }
+    if (key === "geometry" && $("#geometry-canvas")) initGeometry();
   }
   function allowAbandon() {
     return !dirty || confirm("Discard the unsaved form or annotation changes?");
@@ -858,7 +876,7 @@
     if (!allowAbandon()) return;
     dirty = false;
     const d = $("#form-dialog");
-    d.innerHTML = `<h2 id="dialog-title">${title}</h2><form data-form="${form}" ${attributes}>${markup}<p class="dialog-error" role="alert"></p><div class="form-actions">${button("close-dialog", "Cancel", "", "secondary")}<button class="btn primary">Save ${form === "asset" ? "asset" : "inspection"}</button></div></form>`;
+    d.innerHTML = `<h2 id="dialog-title">${title}</h2><form data-form="${form}" ${attributes}>${markup}<p class="dialog-error" role="alert"></p><div class="form-actions">${button("close-dialog", "Cancel", "", "secondary")}<button class="btn primary">Save ${form === "asset" ? "asset" : form === "assessment" ? "assessment" : "inspection"}</button></div></form>`;
     d.showModal();
   }
   function assetForm(id) {
@@ -978,8 +996,8 @@
       annotations(id).forEach((f) =>
         add(
           f.id === editor.selected && editor.box ? editor.box : f,
-          f.severity,
-          `${f.reference} · ${SEVERITIES[f.severity]}`,
+          recordClass(f),
+          `${f.reference} · ${severityText(f)}`,
           f.id === editor.selected,
           f.id,
         ),
@@ -1087,9 +1105,21 @@
     editor.box = { x: f.x, y: f.y, width: f.width, height: f.height };
     editor.draw = false;
     const form = $("#annotation-form");
-    ["category", "severity", "observation", "recommendation"].forEach(
-      (key) => (form.elements[key].value = f[key]),
+    [
+      "category",
+      "severity",
+      "observation",
+      "recommendation",
+      "kind",
+      "discipline",
+      "component",
+      "tag",
+    ].forEach(
+      (key) =>
+        (form.elements[key].value =
+          f[key] ?? ({ kind: "defect", discipline: "general" }[key] || "")),
     );
+    updateFindingFields();
     form.elements.findingId.value = f.id;
     $("#finding-heading").textContent = f.reference;
     syncCoordinates();
@@ -1200,37 +1230,8 @@
   }
   function csv(id) {
     const i = inspection(id);
-    assert(i && visible().some((v) => v.id === id), "Report unavailable.");
-    const safe = (v) => {
-      let s = String(v ?? "");
-      if (/^[\t\r\n]/.test(s) || /^[\s]*[=+@-]/.test(s)) s = "'" + s;
-      return '"' + s.replace(/"/g, '""') + '"';
-    };
-    const rows = [
-      [
-        "Inspection",
-        "Finding",
-        "Photograph",
-        "Category",
-        "Preliminary severity",
-        "Observation",
-        "Recommended follow-up",
-      ],
-      ...findings(id).map((f) => [
-        i.reference,
-        f.reference,
-        photo(f.photoId).name,
-        CATEGORIES[f.category],
-        SEVERITIES[f.severity],
-        f.observation,
-        f.recommendation,
-      ]),
-    ];
-    download(
-      "AssetInspect-findings.csv",
-      "\uFEFF" + rows.map((r) => r.map(safe).join(",")).join("\r\n"),
-      "text/csv;charset=utf-8",
-    );
+    assert(i && visible().some((v) => v.id === id), "Inspection unavailable.");
+    downloadCsv(`${i.reference}-findings.csv`, exportRows(findings(id)));
   }
   function validateState(raw) {
     assert(
@@ -1352,7 +1353,9 @@
         p &&
           p.inspectionId === f.inspectionId &&
           Object.hasOwn(CATEGORIES, f.category) &&
-          Object.hasOwn(SEVERITIES, f.severity) &&
+          (f.kind === "feature"
+            ? f.severity === null && f.category === "other"
+            : Object.hasOwn(SEVERITIES, f.severity)) &&
           rectangular(f),
         "Invalid finding or rectangle.",
       );
@@ -1403,12 +1406,13 @@
         .filter(Number.isFinite);
       i.nextFinding = Math.max(i.nextFinding, ...nums.map((n) => n + 1));
     }
-    return result;
+    return enrichJobState(result, raw);
   }
   async function handleSubmit(form) {
     const kind = form.dataset.form,
       data = new FormData(form),
       value = (name) => String(data.get(name) || "").trim();
+    if (await jobForm(form, data, value)) return;
     if (kind === "filter") {
       const route = location.hash.split("?")[0];
       location.hash =
@@ -1535,6 +1539,9 @@
             id: uuid(),
             inspectionId: i.id,
             caption: value("caption"),
+            evidenceType: Object.hasOwn(EVIDENCE_TYPES, value("evidenceType"))
+              ? value("evidenceType")
+              : "photo",
             at: now(),
           });
         touch(i);
@@ -1552,13 +1559,7 @@
         rectangular(box),
         "Draw a non-zero rectangle entirely inside the photograph before saving.",
       );
-      assert(
-        Object.hasOwn(CATEGORIES, value("category")) &&
-          Object.hasOwn(SEVERITIES, value("severity")) &&
-          value("observation") &&
-          value("recommendation"),
-        "Complete all finding details.",
-      );
+      const details = readFindingFields(value);
       await mutate(() => {
         const i = requireEditable(p.inspectionId, form.dataset.version);
         let f = selected
@@ -1567,10 +1568,7 @@
         assert(!selected || f, "The selected finding is no longer available.");
         const record = {
           ...box,
-          category: value("category"),
-          severity: value("severity"),
-          observation: value("observation"),
-          recommendation: value("recommendation"),
+          ...details,
           updatedAt: now(),
         };
         if (f) {
@@ -1578,7 +1576,7 @@
           event(
             i,
             "Finding updated",
-            `${f.reference}: ${CATEGORIES[f.category]} · ${SEVERITIES[f.severity]}`,
+            `${f.reference}: ${recordTitle(f)} · ${severityText(f)}`,
           );
         } else {
           f = {
@@ -1591,13 +1589,13 @@
             createdAt: now(),
           };
           state.findings.push(f);
-          i.noDefects = false;
           event(
             i,
             "Finding created",
-            `${f.reference}: ${CATEGORIES[f.category]} · ${SEVERITIES[f.severity]}`,
+            `${f.reference}: ${recordTitle(f)} · ${severityText(f)}`,
           );
         }
+        if (!isFeature(f)) i.noDefects = false;
         touch(i);
       }, "Finding saved.");
     } else if (kind === "submit") {
@@ -1608,13 +1606,19 @@
           "Add at least one photograph before submitting.",
         );
         assert(
-          findings(i.id).length || data.has("noDefects"),
+          defects(i.id).length || data.has("noDefects"),
           "Confirm that no visible defects were observed in the supplied photographs, or record a finding.",
         );
+        assert(
+          qaComplete(i, "inspector"),
+          "Complete and save the inspector QA checklist before submitting.",
+        );
         const previous = i.status;
-        i.noDefects = !findings(i.id).length && data.has("noDefects");
+        i.noDefects = !defects(i.id).length && data.has("noDefects");
         i.status = "submitted";
-        touch(i);
+        i.qa.reviewer = {};
+        i.qa.reviewerAt = "";
+        touch(i, false);
         event(i, "Submitted for review", "", previous, "submitted");
       }, "Submitted. Switch to Reviewer to continue the demonstration.");
     } else if (kind === "review") {
@@ -1636,8 +1640,16 @@
           value("decision") !== "changes" || value("comment"),
           "Explain the changes the inspector needs to make.",
         );
+        assert(
+          value("decision") !== "approve" || qaComplete(i, "reviewer"),
+          "Complete and save the reviewer QA checklist before approval.",
+        );
         i.status = value("decision") === "approve" ? "approved" : "changes";
-        touch(i);
+        if (i.status === "changes") {
+          i.qa.inspector = {};
+          i.qa.inspectorAt = "";
+        }
+        touch(i, false);
         event(
           i,
           i.status === "approved" ? "Approved" : "Changes requested",
@@ -1662,6 +1674,10 @@
       dirty = true;
   });
   document.addEventListener("change", (e) => {
+    if (e.target.id === "record-kind") {
+      updateFindingFields();
+      return;
+    }
     if (e.target.id !== "demo-role") return;
     if (!allowAbandon()) {
       e.target.value = actor;
@@ -1692,6 +1708,7 @@
     try {
       const action = b.dataset.action,
         id = b.dataset.id;
+      if (await jobAction(action, b)) return;
       if (action === "menu") {
         $("#sidebar").classList.toggle("open");
         b.setAttribute(
@@ -1743,6 +1760,7 @@
             id: uuid(),
             inspectionId: id,
             name: "synthetic-demo.jpg",
+            evidenceType: "schematic",
             caption: "SYNTHETIC DEMO · Locally generated schematic",
             dataUrl: syntheticImage(a.type),
             width: 1400,
@@ -1777,6 +1795,7 @@
         editor.box = null;
         editor.draw = true;
         $("#annotation-form").reset();
+        updateFindingFields();
         $$("[data-coordinate]").forEach((el) => (el.value = ""));
         $("#finding-heading").textContent = "New finding";
         $("#editor-feedback").textContent =
@@ -1895,6 +1914,8 @@
     }
     render();
   }
+  /* @@JOB_TOOLS@@ */
+  /* @@GEOMETRY@@ */
   start().catch((error) => {
     $("#app").innerHTML =
       `<main class="startup"><h1>Could not open the demo</h1><p>${esc(error.message)}</p><p>Try the original file in a current desktop Chrome or Edge browser.</p></main>`;

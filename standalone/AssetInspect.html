@@ -2730,6 +2730,203 @@ dialog textarea {
     display: none;
   }
 }
+
+/* Engineering review tools and local geometry workbench. */
+[hidden] {
+  display: none !important;
+}
+.severity-dot.feature {
+  background: #387fb5;
+}
+.badge.severity-feature {
+  background: #e8f1fa;
+  color: #28648e;
+}
+.annotation-rect.feature {
+  stroke: #387fb5;
+  fill: #387fb51a;
+}
+.qa-check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 12px 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.qa-check input {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  margin-top: 2px;
+  accent-color: var(--teal, #178d7d);
+}
+.assessment-summary {
+  margin-top: 16px;
+}
+.assessment-summary p {
+  margin: 12px 0;
+}
+.measurement-record {
+  padding: 14px 0;
+  border-bottom: 1px solid #e5eceb;
+}
+.analytics-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 18px;
+}
+.analytics-filter input {
+  min-width: 190px;
+  flex: 2;
+}
+.analytics-filter select {
+  min-width: 120px;
+  flex: 1;
+}
+.worklist-observation {
+  min-width: 220px;
+  max-width: 440px;
+  white-space: normal;
+}
+.pagination {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.geometry-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: 22px;
+  align-items: start;
+  margin-bottom: 22px;
+}
+.geometry-layout aside > section {
+  margin-bottom: 22px;
+}
+.geometry-toolbar {
+  padding: 18px;
+  display: grid;
+  gap: 7px;
+  border-bottom: 1px solid #e5eceb;
+  overflow-wrap: anywhere;
+}
+.geometry-toolbar span {
+  font-size: 12px;
+  color: #657985;
+}
+.geometry-controls {
+  padding: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.geometry-controls .btn {
+  padding: 8px 12px;
+}
+.geometry-controls label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+.geometry-controls input {
+  width: 16px;
+  height: 16px;
+}
+#geometry-canvas {
+  display: block;
+  width: 100%;
+  height: 470px;
+  cursor: grab;
+  touch-action: none;
+}
+#geometry-canvas:active {
+  cursor: grabbing;
+}
+.geometry-panel > p {
+  padding: 12px 18px;
+}
+.geometry-layout form > label,
+.geometry-layout form > select,
+.geometry-layout form > input {
+  display: block;
+  width: 100%;
+  margin: 10px 0;
+}
+.point-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.point-inputs label {
+  font-size: 12px;
+}
+.point-inputs input {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+}
+#geometry-distance {
+  display: block;
+  padding: 15px;
+  margin-top: 15px;
+  background: #e9f4f1;
+  border-radius: 8px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #176d61;
+  overflow-wrap: anywhere;
+}
+.job-guide {
+  margin-top: 24px;
+}
+.job-guide > .guide-grid {
+  margin: 18px 0;
+}
+.job-report {
+  margin: 26px 0;
+}
+.job-report .panel {
+  box-shadow: none;
+}
+@media (max-width: 1150px) {
+  .geometry-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .geometry-layout aside {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+}
+@media (max-width: 700px) {
+  .geometry-layout aside {
+    display: block;
+  }
+  #geometry-canvas {
+    height: 330px;
+  }
+  .analytics-filter > * {
+    width: 100%;
+  }
+  .pagination {
+    flex-wrap: wrap;
+  }
+}
+@media print {
+  .job-report button {
+    display: none !important;
+  }
+  .job-report .panel {
+    border: 0;
+    padding: 0;
+  }
+}
 </style>
 </head>
 <body>
@@ -2930,7 +3127,9 @@ dialog textarea {
       at: now(),
     });
   }
-  function touch(i) {
+  function touch(i, invalidate = true) {
+    if (invalidate) i.qa = emptyQa();
+    i.assessment ||= referenceAssessment();
     i.version++;
     i.updatedAt = now();
   }
@@ -3201,7 +3400,7 @@ dialog textarea {
           at: now(),
         });
     });
-    return s;
+    return seedJobTools(s);
   }
   async function openStorage() {
     return new Promise((resolve, reject) => {
@@ -3249,8 +3448,9 @@ dialog textarea {
           let failure = null;
           request.onsuccess = () => {
             try {
-              if (request.result) state = request.result;
+              if (request.result) state = validateState(request.result);
               change();
+              state = validateState(state);
               store.put(state, "workspace");
             } catch (error) {
               failure = error;
@@ -3262,7 +3462,10 @@ dialog textarea {
           tx.onabort = () =>
             reject(failure || tx.error || new Error("Save cancelled."));
         });
-      else change();
+      else {
+        change();
+        state = validateState(state);
+      }
       dirty = false;
       $("#form-dialog").close();
       channel?.postMessage("updated");
@@ -3475,10 +3678,10 @@ dialog textarea {
       <div class="workflow-strip"><span class="complete">01 <strong>Asset & scope</strong></span><span class="${ps.length ? "complete" : ""}">02 <strong>Visual evidence</strong></span><span class="${i.status !== "draft" ? "complete" : ""}">03 <strong>Review</strong></span><span class="${i.status === "approved" ? "complete" : ""}">04 <strong>Report</strong></span></div>
       ${i.status === "changes" ? `<div class="notice warning">Changes requested. Read the reviewer’s comments in the audit trail, update the findings, and resubmit.</div>` : !edit ? `<div class="notice">Evidence is read-only. ${reviewable(i) ? "Review all photographs, findings, and previous comments before deciding." : "Saved observations and report exports are available below."}</div>` : ""}
       <div class="workspace-layout"><div><section class="panel padded"><h2>Inspection scope</h2><p class="prose">${paragraphs(i.scope)}</p>${i.notes ? `<h3>General notes</h3><p class="prose">${paragraphs(i.notes)}</p>` : ""}</section>
-      <section class="panel padded"><div class="section-line"><div><h2>Visual evidence <span class="count-tag">${ps.length}</span></h2><p class="muted">Open a photograph to ${edit ? "annotate visible indications" : "view saved annotations"}.</p></div>${icon("photo")}</div><div class="photo-grid">${ps.length ? ps.map((p) => `<article class="photo-card"><a href="#/photo/${p.id}"><img src="${p.dataUrl}" alt="${esc(p.caption || p.name)}"><div class="photo-card-info"><strong>${esc(p.caption || p.name)}</strong><span>${annotations(p.id).length} findings ${icon("arrow")}</span></div></a>${edit ? button("delete-photo", "Delete photograph", `data-id="${p.id}"`, "delete-text") : ""}</article>`).join("") : `<div class="empty-state">${icon("photo")}<h3>Your evidence starts here</h3><p>Upload a test image or add a synthetic schematic below.</p></div>`}</div>
-      ${edit ? `<form class="upload-area" data-form="upload" data-id="${id}" data-version="${i.version}"><h3>Add inspection photographs</h3><p>JPEG/PNG · 10 MB each · 8 files per batch · 20 MP maximum</p><div class="input-row"><label for="images">Inspection photographs</label><input type="file" id="images" name="images" accept="image/jpeg,image/png" multiple required></div><div class="input-row"><label for="caption">Caption (optional)</label><input id="caption" name="caption" maxlength="300" placeholder="Describe the supplied evidence…"></div><div class="button-group"><button class="btn secondary">${icon("plus")} Upload photographs</button>${button("synthetic", "Add synthetic example", `data-id="${id}"`, "secondary")}</div></form>` : ""}</section>
-      <section class="panel padded"><h2>Recorded findings <span class="count-tag">${fs.length}</span></h2>${fs.length ? fs.map((f) => `<article class="finding-detail"><div class="section-line"><h3><a href="#/photo/${f.photoId}">${esc(f.reference)} · ${CATEGORIES[f.category]}</a></h3><span class="badge severity-${f.severity}">${SEVERITIES[f.severity]} · Preliminary</span></div><p class="prose">${paragraphs(f.observation)}</p><div class="follow-up"><strong>Recommended follow-up</strong><p class="prose">${paragraphs(f.recommendation)}</p></div></article>`).join("") : `<p class="muted">${i.noDefects ? "No visible defects observed in the supplied photographs. This does not imply the entire asset is defect-free." : "No findings recorded yet."}</p>`}</section></div>
-      <aside class="workspace-aside">${edit ? `<section class="panel padded"><div class="eyebrow">NEXT STEP</div><h2>Ready for review?</h2><p class="muted">Submission locks editing. At least one photograph is required.</p><form data-form="submit" data-id="${id}" data-version="${i.version}">${!fs.length ? `<div class="checkbox-field"><input type="checkbox" id="no-defects" name="noDefects"><label for="no-defects">No visible defects observed in the supplied photographs</label></div>` : ""}<button class="btn primary full">Submit for review ${icon("arrow")}</button></form></section>` : ""}
+      ${assessmentPanel(i)}${measurementReport(i)}<section class="panel padded"><div class="section-line"><div><h2>Visual evidence <span class="count-tag">${ps.length}</span></h2><p class="muted">Open a photograph to ${edit ? "annotate visible indications" : "view saved annotations"}.</p></div>${icon("photo")}</div><div class="photo-grid">${ps.length ? ps.map((p) => `<article class="photo-card"><a href="#/photo/${p.id}"><img src="${p.dataUrl}" alt="${esc(p.caption || p.name)}"><div class="photo-card-info"><strong>${esc(p.caption || p.name)}</strong><span>${EVIDENCE_TYPES[p.evidenceType || "photo"]} · ${annotations(p.id).length} records ${icon("arrow")}</span></div></a>${edit ? button("delete-photo", "Delete photograph", `data-id="${p.id}"`, "delete-text") : ""}</article>`).join("") : `<div class="empty-state">${icon("photo")}<h3>Your evidence starts here</h3><p>Upload a test image or add a synthetic schematic below.</p></div>`}</div>
+      ${edit ? `<form class="upload-area" data-form="upload" data-id="${id}" data-version="${i.version}"><h3>Add inspection photographs</h3><p>JPEG/PNG · 10 MB each · 8 files per batch · 20 MP maximum</p><div class="input-row"><label for="images">Inspection photographs</label><input type="file" id="images" name="images" accept="image/jpeg,image/png" multiple required></div><div class="input-row"><label for="evidence-type">Evidence type</label><select id="evidence-type" name="evidenceType">${options(EVIDENCE_TYPES, "photo")}</select></div><div class="input-row"><label for="caption">Caption (optional)</label><input id="caption" name="caption" maxlength="300" placeholder="Describe the supplied evidence…"></div><div class="button-group"><button class="btn secondary">${icon("plus")} Upload photographs</button>${button("synthetic", "Add synthetic example", `data-id="${id}"`, "secondary")}${button("synthetic-pid", "Add synthetic P&ID", `data-id="${id}"`, "secondary")}</div></form>` : ""}</section>
+      <section class="panel padded"><h2>Recorded findings <span class="count-tag">${fs.length}</span></h2>${fs.length ? fs.map((f) => `<article class="finding-detail"><div class="section-line"><h3><a href="#/photo/${f.photoId}">${esc(f.reference)} · ${recordTitle(f)}</a></h3><span class="badge severity-${recordClass(f)}">${severityText(f)}${isFeature(f) ? "" : " · Preliminary"}</span></div><p class="note-small">${DISCIPLINES[f.discipline] || "General"} · ${COMPONENTS[f.component] || "Unspecified component"}${f.tag ? " · Tag: " + esc(f.tag) : ""}</p><p class="prose">${paragraphs(f.observation)}</p><div class="follow-up"><strong>Recommended follow-up</strong><p class="prose">${paragraphs(f.recommendation)}</p></div></article>`).join("") : `<p class="muted">${i.noDefects ? "No visible defects observed in the supplied photographs. This does not imply the entire asset is defect-free." : "No findings recorded yet."}</p>`}</section></div>
+      <aside class="workspace-aside">${qaPanel(i)}${edit ? `<section class="panel padded"><div class="eyebrow">NEXT STEP</div><h2>Ready for review?</h2><p class="muted">Submission locks editing. At least one photograph is required.</p><form data-form="submit" data-id="${id}" data-version="${i.version}">${!defects(id).length ? `<div class="checkbox-field"><input type="checkbox" id="no-defects" name="noDefects"><label for="no-defects">No visible defects observed in the supplied photographs</label></div>` : ""}<button class="btn primary full">Submit for review ${icon("arrow")}</button></form></section>` : ""}
       ${reviewable(i) ? `<section class="panel padded review-panel"><div class="eyebrow">SIMULATED INDEPENDENT REVIEW</div><h2>Record your decision</h2><p class="muted">Review all saved evidence and comments. Change requests require an explanation.</p><form data-form="review" data-id="${id}" data-version="${i.version}"><p><label for="decision">Decision</label><select id="decision" name="decision"><option value="approve">Approve inspection</option><option value="changes">Request changes</option></select></p><p><label for="comment">Review comment</label><textarea id="comment" name="comment" rows="4" maxlength="20000" placeholder="Record your review and any required changes…"></textarea></p><button class="btn primary full">Save review decision</button></form></section>` : ""}
       <section class="panel padded"><h2>Audit trail</h2><p class="muted">Saved local demonstration history</p>${audit(i)}</section><p class="note-small">Demo role switching is simulated in this browser. The Django implementation provides server-side authentication and authorization.</p></aside></div>`
     );
@@ -3510,7 +3713,7 @@ dialog textarea {
         )
         .join(
           "",
-        )}<small>Preliminary severity · Not a measurement tool</small></div><div class="editor-feedback" id="editor-feedback" role="status">${edit ? "Drag around a visible indication, or enter normalized coordinates below." : "Select a saved finding to inspect its details."}</div>${edit ? `<details class="coordinate-help"><summary>Keyboard-accessible rectangle entry</summary><p>Image fractions from 0 to 1. X/Y specify the top-left corner.</p><div class="coordinate-inputs">${["x", "y", "width", "height"].map((key) => `<label>${key.toUpperCase()}<input type="number" aria-label="Rectangle ${key}" data-coordinate="${key}" min="0" max="1" step="0.001"></label>`).join("")}</div></details>` : ""}</section><aside><section class="panel padded"><div class="section-line"><h2 id="finding-heading">${edit ? "New finding" : "Finding details"}</h2>${edit ? button("new-finding", "+ New", "", "text-link") : ""}</div><form id="annotation-form" data-form="finding" data-photo="${id}" data-version="${i.version}"><input type="hidden" name="findingId"><div class="field"><label for="category">Defect category</label><select name="category" id="category" required ${edit ? "" : "disabled"}><option value="">Choose a category</option>${options(CATEGORIES)}</select></div><div class="field"><label for="severity">Preliminary severity</label><select name="severity" id="severity" required ${edit ? "" : "disabled"}><option value="">Choose severity</option>${options(SEVERITIES)}</select></div><div class="field"><label for="observation">Observation</label><textarea name="observation" id="observation" maxlength="10000" required ${edit ? "" : "disabled"} placeholder="Describe only what is visible…"></textarea></div><div class="field"><label for="recommendation">Recommended follow-up</label><textarea name="recommendation" id="recommendation" maxlength="10000" required ${edit ? "" : "disabled"} placeholder="Describe the recommended engineering verification…"></textarea></div>${edit ? button("redraw", "Redraw rectangle", "", "secondary full") + `<button class="btn primary full save-finding">Save finding ${icon("check")}</button>` : ""}</form></section><section class="panel padded"><h2>Saved findings <span class="count-tag">${as.length}</span></h2><div id="saved-findings">${as.map((f) => `<button type="button" class="saved-finding" data-action="select-finding" data-id="${f.id}"><i class="severity-dot ${f.severity}"></i><span><strong>${esc(f.reference)}</strong><small>${CATEGORIES[f.category]} · ${SEVERITIES[f.severity]}</small></span>${icon("arrow")}</button>`).join("") || `<p class="muted">No findings saved for this photograph.</p>`}</div>${edit ? `<button type="button" id="delete-finding" class="delete-text" data-action="delete-finding" hidden>Delete selected finding</button>` : ""}</section><p class="note-small">Record visible conditions only. Ordinary photographs do not establish crack depth, wall thickness, structural safety, or real-world dimensions.</p></aside></div>`
+        )}<span><i class="severity-dot feature"></i>Feature</span><small>Preliminary severity · Not a measurement tool</small></div><div class="editor-feedback" id="editor-feedback" role="status">${edit ? "Drag around a visible indication, or enter normalized coordinates below." : "Select a saved finding to inspect its details."}</div>${edit ? `<details class="coordinate-help"><summary>Keyboard-accessible rectangle entry</summary><p>Image fractions from 0 to 1. X/Y specify the top-left corner.</p><div class="coordinate-inputs">${["x", "y", "width", "height"].map((key) => `<label>${key.toUpperCase()}<input type="number" aria-label="Rectangle ${key}" data-coordinate="${key}" min="0" max="1" step="0.001"></label>`).join("")}</div></details>` : ""}</section><aside><section class="panel padded"><div class="section-line"><h2 id="finding-heading">${edit ? "New finding" : "Finding details"}</h2>${edit ? button("new-finding", "+ New", "", "text-link") : ""}</div><form id="annotation-form" data-form="finding" data-photo="${id}" data-version="${i.version}"><input type="hidden" name="findingId">${annotationMetadata(edit)}<div class="field"><label for="category">Defect category</label><select name="category" id="category" required ${edit ? "" : "disabled"}><option value="">Choose a category</option>${options(CATEGORIES)}</select></div><div class="field"><label for="severity">Preliminary severity</label><select name="severity" id="severity" required ${edit ? "" : "disabled"}><option value="">Choose severity</option>${options(SEVERITIES)}</select></div><div class="field"><label for="observation">Observation</label><textarea name="observation" id="observation" maxlength="10000" required ${edit ? "" : "disabled"} placeholder="Describe only what is visible…"></textarea></div><div class="field"><label for="recommendation">Recommended follow-up</label><textarea name="recommendation" id="recommendation" maxlength="10000" required ${edit ? "" : "disabled"} placeholder="Describe the recommended engineering verification…"></textarea></div>${edit ? button("redraw", "Redraw rectangle", "", "secondary full") + `<button class="btn primary full save-finding">Save finding ${icon("check")}</button>` : ""}</form></section><section class="panel padded"><h2>Saved findings <span class="count-tag">${as.length}</span></h2><div id="saved-findings">${as.map((f) => `<button type="button" class="saved-finding" data-action="select-finding" data-id="${f.id}"><i class="severity-dot ${recordClass(f)}"></i><span><strong>${esc(f.reference)}</strong><small>${recordTitle(f)} · ${severityText(f)}</small></span>${icon("arrow")}</button>`).join("") || `<p class="muted">No findings saved for this photograph.</p>`}</div>${edit ? `<button type="button" id="delete-finding" class="delete-text" data-action="delete-finding" hidden>Delete selected finding</button>` : ""}</section><p class="note-small">Record visible conditions only. Ordinary photographs do not establish crack depth, wall thickness, structural safety, or real-world dimensions.</p></aside></div>`
     );
   }
   function reportPage(id) {
@@ -3532,7 +3735,7 @@ dialog textarea {
         button("csv", "Export findings CSV", `data-id="${id}"`, "secondary") +
           button("print", `${icon("download")} Print / Save PDF`),
       ) +
-      `<article class="report-paper"><div class="report-brand">Asset<span>Inspect</span><small>VISUAL INFRASTRUCTURE INSPECTION</small></div>${i.status !== "approved" ? `<div class="draft-warning">DRAFT — NOT APPROVED</div>` : ""}<h2 class="offline-report-title">${esc(i.reference)}</h2>${badge(i.status)}<p class="seed-mark">OFFLINE PORTFOLIO DEMONSTRATION · SIMULATED REVIEW ROLES</p><div class="report-meta"><div><span>ASSET</span><strong>${esc(a.identifier)} · ${esc(a.name)}</strong><p>${TYPES[a.type]}<br>${esc(a.location)}</p></div><div><span>INSPECTION</span><strong>${date(i.date)}</strong><p>Alex Morgan<br>Assigned demo inspector</p></div></div><h3>Scope & general notes</h3><p class="prose">${paragraphs(i.scope)}</p><p class="prose">${paragraphs(i.notes)}</p><h3>Finding summary</h3><p>${ps.length} photographs · ${fs.length} recorded findings</p><p>${Object.entries(
+      `<article class="report-paper"><div class="report-brand">Asset<span>Inspect</span><small>VISUAL INFRASTRUCTURE INSPECTION</small></div>${i.status !== "approved" ? `<div class="draft-warning">DRAFT — NOT APPROVED</div>` : ""}<h2 class="offline-report-title">${esc(i.reference)}</h2>${badge(i.status)}<p class="seed-mark">OFFLINE PORTFOLIO DEMONSTRATION · SIMULATED REVIEW ROLES</p><div class="report-meta"><div><span>ASSET</span><strong>${esc(a.identifier)} · ${esc(a.name)}</strong><p>${TYPES[a.type]}<br>${esc(a.location)}</p></div><div><span>INSPECTION</span><strong>${date(i.date)}</strong><p>Alex Morgan<br>Assigned demo inspector</p></div></div><h3>Scope & general notes</h3><p class="prose">${paragraphs(i.scope)}</p><p class="prose">${paragraphs(i.notes)}</p><h3>Finding summary</h3><p>${ps.length} evidence images · ${defects(id).length} defect indications · ${fs.filter(isFeature).length} identified features</p><p>${Object.entries(
         SEVERITIES,
       )
         .map(
@@ -3550,17 +3753,17 @@ dialog textarea {
             )
               .map(
                 (f) =>
-                  `<rect x="${f.x * p.width}" y="${f.y * p.height}" width="${f.width * p.width}" height="${f.height * p.height}" stroke="${COLORS[f.severity]}"/><text style="font-size:${p.width * 0.022}px" x="${Math.max(2, Math.min(f.x * p.width, p.width * 0.75))}" y="${Math.max(p.width * 0.025, f.y * p.height - p.width * 0.008)}">${esc(f.reference)} · ${SEVERITIES[f.severity]}</text>`,
+                  `<rect x="${f.x * p.width}" y="${f.y * p.height}" width="${f.width * p.width}" height="${f.height * p.height}" stroke="${recordColor(f)}"/><text style="font-size:${p.width * 0.022}px" x="${Math.max(2, Math.min(f.x * p.width, p.width * 0.75))}" y="${Math.max(p.width * 0.025, f.y * p.height - p.width * 0.008)}">${esc(f.reference)} · ${severityText(f)}</text>`,
               )
               .join("")}</svg></div>${annotations(p.id)
               .map(
                 (f) =>
-                  `<div class="finding-detail"><h4>${esc(f.reference)} · ${CATEGORIES[f.category]} <span class="badge severity-${f.severity}">${SEVERITIES[f.severity]} · Preliminary</span></h4><p class="prose">${paragraphs(f.observation)}</p><strong>Recommended follow-up</strong><p class="prose">${paragraphs(f.recommendation)}</p></div>`,
+                  `<div class="finding-detail"><h4>${esc(f.reference)} · ${recordTitle(f)} <span class="badge severity-${recordClass(f)}">${severityText(f)}${isFeature(f) ? "" : " · Preliminary"}</span></h4><p class="note-small">${DISCIPLINES[f.discipline] || "General"} · ${COMPONENTS[f.component] || "Unspecified component"}${f.tag ? " · Tag: " + esc(f.tag) : ""}</p><p class="prose">${paragraphs(f.observation)}</p><strong>Recommended follow-up</strong><p class="prose">${paragraphs(f.recommendation)}</p></div>`,
               )
               .join("")}</section>`,
         )
         .join("")}
-      <h3>Review & audit history</h3>${state.events
+      ${jobReport(i)}<h3>Review & audit history</h3>${state.events
         .filter((e) => e.inspectionId === id)
         .map(
           (e) =>
@@ -3584,6 +3787,8 @@ dialog textarea {
   function render() {
     editor?.observer?.disconnect();
     editor = null;
+    geometryView?.dispose();
+    geometryView = null;
     const [route, id] = location.hash
       .replace(/^#\/?/, "")
       .split("?")[0]
@@ -3596,6 +3801,8 @@ dialog textarea {
       ["assets", "Asset register", "asset"],
       ["inspections", "Inspections", "inspect"],
       ...(actor === "reviewer" ? [["reviews", "Review queue", "check"]] : []),
+      ["analytics", "Analysis & worklist", "grid"],
+      ["geometry", "3D / point-cloud lab", "asset"],
       ["reports", "Reports", "report"],
       ["guide", "Demo guide", "clock"],
     ];
@@ -3616,7 +3823,11 @@ dialog textarea {
                     ? editorPage(id)
                     : key === "report"
                       ? reportPage(id)
-                      : guidePage();
+                      : key === "analytics"
+                        ? analyticsPage()
+                        : key === "geometry"
+                          ? geometryPage()
+                          : guidePage() + jobGuide();
     } catch (error) {
       content =
         heading("RECORD UNAVAILABLE", "Open another record", error.message) +
@@ -3633,7 +3844,11 @@ dialog textarea {
     $("#app").innerHTML =
       `<aside class="sidebar" id="sidebar"><a class="brand" href="#/overview">${$("link[rel=icon]") ? `<img src="${$("link[rel=icon]").href}" width="35" height="35" alt="">` : ""}<span>Asset<span class="brand-light">Inspect</span><small>VISUAL INFRASTRUCTURE INSPECTION</small></span></a><div class="workspace-label"><span class="workspace-icon">AI</span><div>Recruiter demo<small><span class="live-dot"></span> Offline · One file</small></div></div><div class="nav-label">WORKSPACE</div><nav aria-label="Main navigation">${nav.map(([link, label, name]) => `<a href="#/${link}" class="${current === link ? "active" : ""}">${icon(name)}${label}${link === "reviews" ? `<span class="nav-count">${visible().filter((i) => reviewable(i)).length}</span>` : ""}</a>`).join("")}</nav><div class="sidebar-bottom"><div class="portfolio-note"><span class="live-dot"></span>INDEPENDENT PORTFOLIO<small>Visual evidence. Human judgment.<br>Browser-only role simulation.</small><button type="button" data-action="backup">Export backup</button><button type="button" data-action="restore">Restore backup</button></div><div class="user-block"><span class="avatar">${person().name[0]}</span><div><strong>${person().name}</strong><small>${person().role} · Demo account</small></div></div></div></aside>
       <div class="app-shell"><header class="topbar"><div class="breadcrumbs"><button type="button" class="mobile-menu" data-action="menu" aria-label="Toggle navigation" aria-expanded="false">☰</button><span>Portfolio</span><span class="crumb-slash">/</span><strong>${nav.find((n) => n[0] === current)?.[1] || "Workspace"}</strong></div><div class="topbar-right"><label class="sr-only" for="demo-role">Demo account</label><select id="demo-role" class="role-select" aria-label="Demo account"><option value="inspector" ${actor === "inspector" ? "selected" : ""}>Inspector · Alex Morgan</option><option value="reviewer" ${actor === "reviewer" ? "selected" : ""}>Reviewer · Jordan Lee</option></select></div></header><main id="main" class="main-content"><div class="offline-ribbon"><div><strong>Interactive offline portfolio demo</strong><span>Roles are simulated. ${db ? "Changes save in this browser only." : "Temporary session: local storage unavailable."} No installation or Internet needed.</span></div><div class="offline-toolbar">${button("share", `${icon("download")} Download shareable HTML`, "", "secondary")}<a class="btn secondary" href="#/guide">Quick guide</a></div></div>${storageMessage ? `<div class="offline-storage-warning">${esc(storageMessage)}</div>` : ""}<div id="page-content">${content}</div><footer class="app-footer"><span>AssetInspect / Visual infrastructure inspection</span><span>Independent portfolio demonstration · ${db ? "Saved locally" : "Temporary session"}</span></footer></main></div>`;
-    if (key === "photo" && $("#annotation-overlay")) initEditor(id);
+    if (key === "photo" && $("#annotation-overlay")) {
+      initEditor(id);
+      updateFindingFields();
+    }
+    if (key === "geometry" && $("#geometry-canvas")) initGeometry();
   }
   function allowAbandon() {
     return !dirty || confirm("Discard the unsaved form or annotation changes?");
@@ -3655,7 +3870,7 @@ dialog textarea {
     if (!allowAbandon()) return;
     dirty = false;
     const d = $("#form-dialog");
-    d.innerHTML = `<h2 id="dialog-title">${title}</h2><form data-form="${form}" ${attributes}>${markup}<p class="dialog-error" role="alert"></p><div class="form-actions">${button("close-dialog", "Cancel", "", "secondary")}<button class="btn primary">Save ${form === "asset" ? "asset" : "inspection"}</button></div></form>`;
+    d.innerHTML = `<h2 id="dialog-title">${title}</h2><form data-form="${form}" ${attributes}>${markup}<p class="dialog-error" role="alert"></p><div class="form-actions">${button("close-dialog", "Cancel", "", "secondary")}<button class="btn primary">Save ${form === "asset" ? "asset" : form === "assessment" ? "assessment" : "inspection"}</button></div></form>`;
     d.showModal();
   }
   function assetForm(id) {
@@ -3775,8 +3990,8 @@ dialog textarea {
       annotations(id).forEach((f) =>
         add(
           f.id === editor.selected && editor.box ? editor.box : f,
-          f.severity,
-          `${f.reference} · ${SEVERITIES[f.severity]}`,
+          recordClass(f),
+          `${f.reference} · ${severityText(f)}`,
           f.id === editor.selected,
           f.id,
         ),
@@ -3884,9 +4099,21 @@ dialog textarea {
     editor.box = { x: f.x, y: f.y, width: f.width, height: f.height };
     editor.draw = false;
     const form = $("#annotation-form");
-    ["category", "severity", "observation", "recommendation"].forEach(
-      (key) => (form.elements[key].value = f[key]),
+    [
+      "category",
+      "severity",
+      "observation",
+      "recommendation",
+      "kind",
+      "discipline",
+      "component",
+      "tag",
+    ].forEach(
+      (key) =>
+        (form.elements[key].value =
+          f[key] ?? ({ kind: "defect", discipline: "general" }[key] || "")),
     );
+    updateFindingFields();
     form.elements.findingId.value = f.id;
     $("#finding-heading").textContent = f.reference;
     syncCoordinates();
@@ -3997,37 +4224,8 @@ dialog textarea {
   }
   function csv(id) {
     const i = inspection(id);
-    assert(i && visible().some((v) => v.id === id), "Report unavailable.");
-    const safe = (v) => {
-      let s = String(v ?? "");
-      if (/^[\t\r\n]/.test(s) || /^[\s]*[=+@-]/.test(s)) s = "'" + s;
-      return '"' + s.replace(/"/g, '""') + '"';
-    };
-    const rows = [
-      [
-        "Inspection",
-        "Finding",
-        "Photograph",
-        "Category",
-        "Preliminary severity",
-        "Observation",
-        "Recommended follow-up",
-      ],
-      ...findings(id).map((f) => [
-        i.reference,
-        f.reference,
-        photo(f.photoId).name,
-        CATEGORIES[f.category],
-        SEVERITIES[f.severity],
-        f.observation,
-        f.recommendation,
-      ]),
-    ];
-    download(
-      "AssetInspect-findings.csv",
-      "\uFEFF" + rows.map((r) => r.map(safe).join(",")).join("\r\n"),
-      "text/csv;charset=utf-8",
-    );
+    assert(i && visible().some((v) => v.id === id), "Inspection unavailable.");
+    downloadCsv(`${i.reference}-findings.csv`, exportRows(findings(id)));
   }
   function validateState(raw) {
     assert(
@@ -4149,7 +4347,9 @@ dialog textarea {
         p &&
           p.inspectionId === f.inspectionId &&
           Object.hasOwn(CATEGORIES, f.category) &&
-          Object.hasOwn(SEVERITIES, f.severity) &&
+          (f.kind === "feature"
+            ? f.severity === null && f.category === "other"
+            : Object.hasOwn(SEVERITIES, f.severity)) &&
           rectangular(f),
         "Invalid finding or rectangle.",
       );
@@ -4200,12 +4400,13 @@ dialog textarea {
         .filter(Number.isFinite);
       i.nextFinding = Math.max(i.nextFinding, ...nums.map((n) => n + 1));
     }
-    return result;
+    return enrichJobState(result, raw);
   }
   async function handleSubmit(form) {
     const kind = form.dataset.form,
       data = new FormData(form),
       value = (name) => String(data.get(name) || "").trim();
+    if (await jobForm(form, data, value)) return;
     if (kind === "filter") {
       const route = location.hash.split("?")[0];
       location.hash =
@@ -4332,6 +4533,9 @@ dialog textarea {
             id: uuid(),
             inspectionId: i.id,
             caption: value("caption"),
+            evidenceType: Object.hasOwn(EVIDENCE_TYPES, value("evidenceType"))
+              ? value("evidenceType")
+              : "photo",
             at: now(),
           });
         touch(i);
@@ -4349,13 +4553,7 @@ dialog textarea {
         rectangular(box),
         "Draw a non-zero rectangle entirely inside the photograph before saving.",
       );
-      assert(
-        Object.hasOwn(CATEGORIES, value("category")) &&
-          Object.hasOwn(SEVERITIES, value("severity")) &&
-          value("observation") &&
-          value("recommendation"),
-        "Complete all finding details.",
-      );
+      const details = readFindingFields(value);
       await mutate(() => {
         const i = requireEditable(p.inspectionId, form.dataset.version);
         let f = selected
@@ -4364,10 +4562,7 @@ dialog textarea {
         assert(!selected || f, "The selected finding is no longer available.");
         const record = {
           ...box,
-          category: value("category"),
-          severity: value("severity"),
-          observation: value("observation"),
-          recommendation: value("recommendation"),
+          ...details,
           updatedAt: now(),
         };
         if (f) {
@@ -4375,7 +4570,7 @@ dialog textarea {
           event(
             i,
             "Finding updated",
-            `${f.reference}: ${CATEGORIES[f.category]} · ${SEVERITIES[f.severity]}`,
+            `${f.reference}: ${recordTitle(f)} · ${severityText(f)}`,
           );
         } else {
           f = {
@@ -4388,13 +4583,13 @@ dialog textarea {
             createdAt: now(),
           };
           state.findings.push(f);
-          i.noDefects = false;
           event(
             i,
             "Finding created",
-            `${f.reference}: ${CATEGORIES[f.category]} · ${SEVERITIES[f.severity]}`,
+            `${f.reference}: ${recordTitle(f)} · ${severityText(f)}`,
           );
         }
+        if (!isFeature(f)) i.noDefects = false;
         touch(i);
       }, "Finding saved.");
     } else if (kind === "submit") {
@@ -4405,13 +4600,19 @@ dialog textarea {
           "Add at least one photograph before submitting.",
         );
         assert(
-          findings(i.id).length || data.has("noDefects"),
+          defects(i.id).length || data.has("noDefects"),
           "Confirm that no visible defects were observed in the supplied photographs, or record a finding.",
         );
+        assert(
+          qaComplete(i, "inspector"),
+          "Complete and save the inspector QA checklist before submitting.",
+        );
         const previous = i.status;
-        i.noDefects = !findings(i.id).length && data.has("noDefects");
+        i.noDefects = !defects(i.id).length && data.has("noDefects");
         i.status = "submitted";
-        touch(i);
+        i.qa.reviewer = {};
+        i.qa.reviewerAt = "";
+        touch(i, false);
         event(i, "Submitted for review", "", previous, "submitted");
       }, "Submitted. Switch to Reviewer to continue the demonstration.");
     } else if (kind === "review") {
@@ -4433,8 +4634,16 @@ dialog textarea {
           value("decision") !== "changes" || value("comment"),
           "Explain the changes the inspector needs to make.",
         );
+        assert(
+          value("decision") !== "approve" || qaComplete(i, "reviewer"),
+          "Complete and save the reviewer QA checklist before approval.",
+        );
         i.status = value("decision") === "approve" ? "approved" : "changes";
-        touch(i);
+        if (i.status === "changes") {
+          i.qa.inspector = {};
+          i.qa.inspectorAt = "";
+        }
+        touch(i, false);
         event(
           i,
           i.status === "approved" ? "Approved" : "Changes requested",
@@ -4459,6 +4668,10 @@ dialog textarea {
       dirty = true;
   });
   document.addEventListener("change", (e) => {
+    if (e.target.id === "record-kind") {
+      updateFindingFields();
+      return;
+    }
     if (e.target.id !== "demo-role") return;
     if (!allowAbandon()) {
       e.target.value = actor;
@@ -4489,6 +4702,7 @@ dialog textarea {
     try {
       const action = b.dataset.action,
         id = b.dataset.id;
+      if (await jobAction(action, b)) return;
       if (action === "menu") {
         $("#sidebar").classList.toggle("open");
         b.setAttribute(
@@ -4540,6 +4754,7 @@ dialog textarea {
             id: uuid(),
             inspectionId: id,
             name: "synthetic-demo.jpg",
+            evidenceType: "schematic",
             caption: "SYNTHETIC DEMO · Locally generated schematic",
             dataUrl: syntheticImage(a.type),
             width: 1400,
@@ -4574,6 +4789,7 @@ dialog textarea {
         editor.box = null;
         editor.draw = true;
         $("#annotation-form").reset();
+        updateFindingFields();
         $$("[data-coordinate]").forEach((el) => (el.value = ""));
         $("#finding-heading").textContent = "New finding";
         $("#editor-feedback").textContent =
@@ -4692,6 +4908,1466 @@ dialog textarea {
     }
     render();
   }
+  /* Job-aligned tools. Embedded inside offline.js's private application scope. */
+const DISCIPLINES = {
+  general: "General / unclassified",
+  mechanical: "Mechanical",
+  structural: "Structural",
+  hydraulic: "Hydraulic / process",
+};
+const COMPONENTS = {
+  pipe: "Pipe / spool",
+  flange: "Flange",
+  valve: "Valve",
+  pump: "Pump",
+  weld: "Weld / seam",
+  tank_shell: "Tank shell",
+  support: "Pipe / equipment support",
+  beam: "Beam",
+  column: "Column / pile",
+  joint: "Connection / joint",
+  bracing: "Bracing",
+  inlet: "Inlet",
+  outlet: "Outlet",
+  drain: "Drain",
+  channel: "Channel / culvert",
+  gate: "Gate / hydraulic control",
+  other: "Other component",
+};
+const EVIDENCE_TYPES = {
+  photo: "Inspection photograph",
+  pid: "P&ID / process diagram",
+  isometric: "Isometric / engineering drawing",
+  cad: "CAD screenshot",
+  schematic: "Schematic / synthetic example",
+};
+const CONDITIONS = {
+  unassessed: "Not assessed",
+  no_indication: "No indication in supplied evidence",
+  monitor: "Follow-up / monitoring required",
+  priority_review: "Priority engineering review required",
+};
+const QA_CHECKS = {
+  inspector: {
+    quality: "Image clarity and coverage reviewed",
+    labels: "Defect / feature labels and equipment tags checked",
+    rectangles: "Rectangle placement checked against supplied evidence",
+    duplicates: "Potential duplicate/overlapping records reviewed",
+    observations: "Observations describe visible evidence only",
+    followup: "Follow-up actions and scope limitations checked",
+  },
+  reviewer: {
+    evidence: "All photographs / drawings and saved records reviewed",
+    taxonomy: "Discipline, component tags and rectangle labels reviewed",
+    basis: "Assessment basis, references and limitations reviewed",
+    actions: "Recommended follow-up and measurements reviewed",
+    history: "Previous review comments and changes checked",
+  },
+};
+const isFeature = (f) => f.kind === "feature";
+const defects = (id) => findings(id).filter((f) => !isFeature(f));
+const recordTitle = (f) =>
+  isFeature(f) ? COMPONENTS[f.component] || "Feature" : CATEGORIES[f.category];
+const severityText = (f) =>
+  isFeature(f) ? "Feature identified" : SEVERITIES[f.severity];
+const recordClass = (f) => (isFeature(f) ? "feature" : f.severity);
+const recordColor = (f) => (isFeature(f) ? "#387fb5" : COLORS[f.severity]);
+let geometryView = null;
+function emptyQa() {
+  return { inspector: {}, reviewer: {} };
+}
+function qaComplete(i, role) {
+  return Object.keys(QA_CHECKS[role]).every(
+    (key) => i.qa?.[role]?.[key] === true,
+  );
+}
+function referenceAssessment(raw = {}) {
+  const clean = (key, max = 10000) => {
+    const value = raw[key] ?? "";
+    assert(
+      typeof value === "string" && value.length <= max,
+      "Invalid assessment text.",
+    );
+    return value;
+  };
+  const framework = raw.framework || "demo",
+    family = raw.family || "none",
+    condition = raw.condition || "unassessed";
+  assert(
+    ["demo", "client", "reference"].includes(framework) &&
+      ["none", "client", "API", "NACE", "ASCE", "ASME"].includes(family) &&
+      Object.hasOwn(CONDITIONS, condition),
+    "Invalid assessment basis.",
+  );
+  return {
+    framework,
+    family,
+    condition,
+    reference: clean("reference", 300),
+    criteria: clean("criteria"),
+    rationale: clean("rationale"),
+    limitations: clean("limitations"),
+    due: clean("due", 10),
+  };
+}
+function enrichJobState(result, raw) {
+  const text = (value, max = 140) => {
+    assert(
+      typeof value === "string" && value.length <= max,
+      "Invalid job-tool metadata.",
+    );
+    return value;
+  };
+  for (const i of result.inspections) {
+    const source = raw.inspections.find((v) => v.id === i.id);
+    i.assessment = referenceAssessment(source.assessment);
+    i.qa = emptyQa();
+    for (const role of ["inspector", "reviewer"]) {
+      const data = source.qa?.[role] || {};
+      for (const key of Object.keys(QA_CHECKS[role]))
+        i.qa[role][key] = data[key] === true;
+      i.qa[role + "At"] = text(source.qa?.[role + "At"] || "", 40);
+    }
+  }
+  for (const p of result.photos) {
+    const source = raw.photos.find((v) => v.id === p.id);
+    p.evidenceType = source.evidenceType || "photo";
+    assert(
+      Object.hasOwn(EVIDENCE_TYPES, p.evidenceType),
+      "Invalid evidence type.",
+    );
+  }
+  for (const f of result.findings) {
+    const source = raw.findings.find((v) => v.id === f.id);
+    f.kind = source.kind || "defect";
+    f.discipline = source.discipline || "general";
+    f.component = source.component || "";
+    f.tag = text(source.tag || "", 40);
+    assert(
+      ["defect", "feature"].includes(f.kind) &&
+        Object.hasOwn(DISCIPLINES, f.discipline) &&
+        (!f.component || Object.hasOwn(COMPONENTS, f.component)) &&
+        (!isFeature(f) || f.component),
+      "Invalid feature/component annotation.",
+    );
+  }
+  result.measurements = (raw.measurements || []).map((m) => {
+    assert((raw.measurements || []).length <= 1000, "Too many measurements.");
+    assert(
+      result.inspections.some((i) => i.id === m.inspectionId) &&
+        Array.isArray(m.a) &&
+        Array.isArray(m.b) &&
+        [...m.a, ...m.b].every(Number.isFinite) &&
+        m.a.length === 3 &&
+        m.b.length === 3 &&
+        ["m", "cm", "mm"].includes(m.unit),
+      "Invalid coordinate measurement.",
+    );
+    return {
+      id: text(m.id, 80),
+      inspectionId: text(m.inspectionId, 80),
+      name: text(m.name),
+      source: text(m.source, 255),
+      unit: m.unit,
+      a: [...m.a],
+      b: [...m.b],
+      distance: Math.hypot(...m.a.map((n, k) => n - m.b[k])),
+      synthetic: !!m.synthetic,
+      note: text(m.note, 1000),
+      at: text(m.at, 40),
+    };
+  });
+  assert(
+    new Set(result.measurements.map((m) => m.id)).size ===
+      result.measurements.length,
+    "Duplicate measurement identifiers.",
+  );
+  result.geometry = raw.geometry
+    ? validateGeometry(raw.geometry)
+    : syntheticGeometry();
+  return result;
+}
+function seedJobTools(s) {
+  s.measurements = [];
+  s.geometry = syntheticGeometry();
+  for (const f of s.findings)
+    Object.assign(f, {
+      kind: "defect",
+      discipline: "general",
+      component: "",
+      tag: "",
+    });
+  for (const i of s.inspections) {
+    i.assessment = referenceAssessment({
+      limitations:
+        "SYNTHETIC DEMO: Supplied visual evidence only. No field measurements, standards assessment or structural certification.",
+    });
+    i.qa = emptyQa();
+    if (["submitted", "approved"].includes(i.status))
+      for (const key of Object.keys(QA_CHECKS.inspector))
+        i.qa.inspector[key] = true;
+    if (i.status === "approved")
+      for (const key of Object.keys(QA_CHECKS.reviewer))
+        i.qa.reviewer[key] = true;
+    const p = s.photos.find((p) => p.inspectionId === i.id);
+    p.evidenceType = "schematic";
+    const a = s.assets.find((a) => a.id === i.assetId);
+    s.findings.push({
+      id: uuid(),
+      inspectionId: i.id,
+      photoId: p.id,
+      reference: "F-003",
+      kind: "feature",
+      discipline: a.type === "marine" ? "structural" : "mechanical",
+      component:
+        a.type === "tank"
+          ? "tank_shell"
+          : a.type === "marine"
+            ? "beam"
+            : "pipe",
+      tag: "DEMO-" + a.identifier,
+      category: "other",
+      severity: null,
+      x: 0.14,
+      y: 0.35,
+      width: 0.15,
+      height: 0.2,
+      observation:
+        "SYNTHETIC DEMO FEATURE: Manually identified component in the supplied schematic.",
+      recommendation:
+        "Confirm the component identity against the applicable drawing or equipment register.",
+      creator: "Alex Morgan",
+      createdAt: now(),
+      updatedAt: now(),
+    });
+    i.nextFinding = 4;
+  }
+  return s;
+}
+function annotationMetadata(edit) {
+  return `<div class="field"><label for="record-kind">Record type</label><select id="record-kind" name="kind" ${edit ? "" : "disabled"}><option value="defect">Defect / visible indication</option><option value="feature">Feature / component identification</option></select></div><div class="field"><label for="discipline">Engineering discipline</label><select id="discipline" name="discipline" ${edit ? "" : "disabled"}>${options(DISCIPLINES, "general")}</select></div><div class="field"><label for="component">Feature / component</label><select id="component" name="component" ${edit ? "" : "disabled"}><option value="">Unspecified / choose component</option>${options(COMPONENTS)}</select></div><div class="field"><label for="equipment-tag">Equipment / drawing tag</label><input id="equipment-tag" name="tag" maxlength="40" placeholder="e.g. V-101, flange F2, support S3" ${edit ? "" : "disabled"}></div>`;
+}
+function updateFindingFields() {
+  const f = $("#annotation-form");
+  if (!f) return;
+  const feature = f.elements.kind.value === "feature",
+    edit = editable(inspection(photo(f.dataset.photo).inspectionId));
+  for (const name of ["category", "severity"]) {
+    f.elements[name].closest(".field").hidden = feature;
+    f.elements[name].required = !feature && edit;
+    f.elements[name].disabled = feature || !edit;
+  }
+  f.elements.component.required = feature && edit;
+}
+function readFindingFields(value) {
+  const kind = value("kind") || "defect",
+    feature = kind === "feature",
+    discipline = value("discipline") || "general",
+    component = value("component");
+  assert(
+    ["defect", "feature"].includes(kind) &&
+      Object.hasOwn(DISCIPLINES, discipline) &&
+      (!component || Object.hasOwn(COMPONENTS, component)) &&
+      (!feature || component),
+    "Choose the record type, discipline and a component for feature records.",
+  );
+  assert(
+    feature ||
+      (Object.hasOwn(CATEGORIES, value("category")) &&
+        Object.hasOwn(SEVERITIES, value("severity"))),
+    "Choose a valid defect category and preliminary severity.",
+  );
+  assert(
+    value("observation") && value("recommendation"),
+    "Complete the observation and recommended follow-up.",
+  );
+  return {
+    kind,
+    discipline,
+    component,
+    tag: value("tag"),
+    category: feature ? "other" : value("category"),
+    severity: feature ? null : value("severity"),
+    observation: value("observation"),
+    recommendation: value("recommendation"),
+  };
+}
+function overlapPairs(i) {
+  const all = findings(i.id),
+    pairs = [];
+  for (let a = 0; a < all.length; a++)
+    for (let b = a + 1; b < all.length; b++) {
+      const p = all[a],
+        q = all[b];
+      if (
+        p.photoId !== q.photoId ||
+        isFeature(p) !== isFeature(q) ||
+        p.category !== q.category ||
+        p.component !== q.component
+      )
+        continue;
+      const area =
+        Math.max(
+          0,
+          Math.min(p.x + p.width, q.x + q.width) - Math.max(p.x, q.x),
+        ) *
+        Math.max(
+          0,
+          Math.min(p.y + p.height, q.y + q.height) - Math.max(p.y, q.y),
+        );
+      if (area / (p.width * p.height + q.width * q.height - area) > 0.85)
+        pairs.push([p.reference, q.reference]);
+    }
+  return pairs;
+}
+function qaPanel(i) {
+  const role = editable(i) ? "inspector" : reviewable(i) ? "reviewer" : null,
+    pairs = overlapPairs(i);
+  return `<section class="panel padded qa-panel"><div class="eyebrow">HUMAN QUALITY ASSURANCE</div><h2>QA checklist</h2>${
+    pairs.length
+      ? `<div class="notice warning">Potential overlaps: ${pairs
+          .slice(0, 10)
+          .map((p) => p.map(esc).join(" / "))
+          .join(
+            ", ",
+          )}. Review these manually; overlap is not automatically an error.</div>`
+      : ""
+  }${
+    role
+      ? `<form data-form="qa" data-id="${i.id}" data-version="${i.version}" data-qa-role="${role}"><p class="muted">${role === "inspector" ? "Complete these checks before submission. Inspection edits clear previous checks." : "Approval requires all reviewer checks. A change request can be recorded while checks remain incomplete."}</p>${Object.entries(
+          QA_CHECKS[role],
+        )
+          .map(
+            ([key, label]) =>
+              `<label class="qa-check"><input type="checkbox" name="${key}" ${i.qa?.[role]?.[key] ? "checked" : ""}><span>${label}</span></label>`,
+          )
+          .join(
+            "",
+          )}<button class="btn secondary full">Save ${role} QA</button></form>`
+      : `<p class="muted">Inspector: ${qaComplete(i, "inspector") ? "checklist complete" : "not recorded / incomplete"}<br>Reviewer: ${qaComplete(i, "reviewer") ? "checklist complete" : "not recorded / incomplete"}</p>`
+  }</section>`;
+}
+function assessmentPanel(i) {
+  const a = referenceAssessment(i.assessment),
+    edit = editable(i);
+  return `<section class="panel padded"><div class="section-line"><h2>Assessment basis & limitations</h2>${edit ? button("assessment", "Edit assessment", `data-id="${i.id}"`, "secondary") : ""}</div><div class="assessment-summary"><span class="badge draft">${CONDITIONS[a.condition]}</span><p><strong>${a.framework === "demo" ? "Illustrative portfolio rubric" : a.framework === "client" ? "Client-defined criteria" : "User-supplied reference document"}</strong> · ${esc(a.family)}</p>${a.reference ? `<p class="prose">Reference / revision / clause: ${esc(a.reference)}</p>` : ""}${a.criteria ? `<p class="prose"><strong>Criteria:</strong> ${paragraphs(a.criteria)}</p>` : ""}${a.rationale ? `<p class="prose"><strong>Engineering rationale:</strong> ${paragraphs(a.rationale)}</p>` : ""}<p class="prose">${paragraphs(a.limitations || "Assessment is limited to supplied evidence. Engineering verification is required.")}</p>${a.due ? `<p>Follow-up due: ${esc(a.due)}</p>` : ""}<p class="note-small">API, NACE, ASCE and ASME entries are reference metadata only. No licensed code rules, compliance checks or certified condition grades are built in.</p></div></section>`;
+}
+function assessmentDialog(id) {
+  const i = requireEditable(id),
+    a = referenceAssessment(i.assessment);
+  openDialog(
+    "Assessment basis & limitations",
+    "assessment",
+    `<div class="notice">Enter a defensible, preliminary assessment of the supplied evidence. Reference fields do not implement or certify a standard.</div><label for="basis-framework">Assessment basis</label><select id="basis-framework" name="framework">${options({ demo: "Illustrative portfolio rubric", client: "Client-defined criteria", reference: "User-supplied reference document" }, a.framework)}</select><label for="standard-family">Reference family (metadata only)</label><select id="standard-family" name="family">${options({ none: "None / portfolio example", client: "Client framework", API: "API — reference only", NACE: "NACE — reference only", ASCE: "ASCE — reference only", ASME: "ASME — reference only" }, a.family)}</select>${field("Document / revision / clause", "reference", a.reference, "text", false, 300)}${area("User-supplied assessment criteria", "criteria", a.criteria, false)}<label for="condition-grade">Preliminary condition / action</label><select id="condition-grade" name="condition">${options(CONDITIONS, a.condition)}</select>${area("Rationale linked to saved evidence", "rationale", a.rationale, false)}${area("Scope / evidence limitations", "limitations", a.limitations, true)}${field("Follow-up due (optional)", "due", a.due, "date", false)}`,
+    `data-id="${id}" data-version="${i.version}"`,
+  );
+}
+function measurementReport(i) {
+  const rows = (state.measurements || []).filter(
+    (m) => m.inspectionId === i.id,
+  );
+  return `<section class="panel padded"><h2>Model-coordinate measurements <span class="count-tag">${rows.length}</span></h2>${rows.length ? rows.map((m) => `<div class="measurement-record"><strong>${esc(m.name)}: ${m.distance.toFixed(4)} ${m.unit}</strong><p class="prose">${esc(m.source)} · ${m.synthetic ? "Synthetic known-coordinate example" : "User-declared coordinate units; calibration / accuracy unverified"}<br>A: ${m.a.map((v) => v.toFixed(4)).join(", ")} · B: ${m.b.map((v) => v.toFixed(4)).join(", ")}</p><p class="prose">${esc(m.note)}</p>${editable(i) ? button("delete-measurement", "Delete measurement", `data-id="${m.id}"`, "delete-text") : ""}</div>`).join("") : `<p class="muted">Open the 3D / point-cloud lab to select two model points and save a coordinate distance. Photographs do not supply physical scale.</p>`}</section>`;
+}
+function jobReport(i) {
+  const a = referenceAssessment(i.assessment);
+  return `<section class="job-report"><h3>Assessment basis & scope limitations</h3><p>${esc(a.framework)} · ${esc(a.family)} · ${CONDITIONS[a.condition]}</p>${a.reference ? `<p>Reference / revision / clause: ${esc(a.reference)}</p>` : ""}<p class="prose">${paragraphs(a.criteria)}</p><p class="prose">${paragraphs(a.rationale)}</p><p class="prose">${paragraphs(a.limitations || "Supplied visual evidence only; qualified engineering verification required.")}</p><p class="note-small">References are user-entered metadata. No built-in industry-standard compliance assessment is performed.</p>${a.due ? `<p>Follow-up due: ${esc(a.due)}</p>` : ""}<h3>Quality assurance</h3>${[
+    "inspector",
+    "reviewer",
+  ]
+    .map(
+      (role) =>
+        `<p><strong>${role === "inspector" ? "Inspector" : "Reviewer"}:</strong> ${
+          Object.entries(QA_CHECKS[role])
+            .filter(([key]) => i.qa?.[role]?.[key])
+            .map(([, label]) => esc(label))
+            .join("; ") || "Checks not recorded / legacy record"
+        }</p>`,
+    )
+    .join("")}${measurementReport(i)}</section>`;
+}
+function syntheticPid() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1400;
+  canvas.height = 900;
+  const c = canvas.getContext("2d");
+  c.fillStyle = "#f1f5f3";
+  c.fillRect(0, 0, 1400, 900);
+  c.fillStyle = "#143e47";
+  c.fillRect(0, 0, 1400, 130);
+  c.fillStyle = "#b6ebdf";
+  c.font = "bold 32px system-ui";
+  c.fillText("SYNTHETIC PROCESS / P&ID-STYLE EXERCISE", 40, 55);
+  c.font = "22px system-ui";
+  c.fillText(
+    "Illustrative symbols only · Not a plant design or industry-compliant drawing",
+    40,
+    100,
+  );
+  c.strokeStyle = "#355b69";
+  c.lineWidth = 5;
+  c.beginPath();
+  c.moveTo(100, 450);
+  c.lineTo(1300, 450);
+  c.stroke();
+  c.strokeRect(110, 260, 150, 130);
+  c.beginPath();
+  c.moveTo(185, 390);
+  c.lineTo(185, 450);
+  c.stroke();
+  c.beginPath();
+  c.arc(480, 450, 68, 0, Math.PI * 2);
+  c.stroke();
+  c.beginPath();
+  c.moveTo(450, 410);
+  c.lineTo(525, 450);
+  c.lineTo(450, 490);
+  c.closePath();
+  c.stroke();
+  c.beginPath();
+  c.moveTo(780, 400);
+  c.lineTo(850, 450);
+  c.lineTo(780, 500);
+  c.closePath();
+  c.moveTo(920, 400);
+  c.lineTo(850, 450);
+  c.lineTo(920, 500);
+  c.closePath();
+  c.stroke();
+  c.beginPath();
+  c.moveTo(850, 400);
+  c.lineTo(850, 340);
+  c.lineTo(900, 340);
+  c.stroke();
+  c.fillStyle = "#355b69";
+  c.font = "26px system-ui";
+  c.fillText("TK-101", 125, 245);
+  c.fillText("P-101 / PUMP", 385, 565);
+  c.fillText("V-101 / VALVE", 765, 565);
+  c.fillText("INLET", 75, 520);
+  c.fillText("OUTLET", 1150, 520);
+  c.beginPath();
+  c.moveTo(1150, 435);
+  c.lineTo(1180, 450);
+  c.lineTo(1150, 465);
+  c.closePath();
+  c.fill();
+  c.font = "23px system-ui";
+  c.fillText(
+    "Exercise: identify mechanical/hydraulic features and equipment tags manually.",
+    90,
+    725,
+  );
+  c.fillText(
+    "Flow direction and symbols are illustrative; no safety or design inference is supported.",
+    90,
+    770,
+  );
+  return canvas.toDataURL("image/jpeg", 0.9);
+}
+function filteredRecords() {
+  const p = new URLSearchParams(location.hash.split("?")[1] || ""),
+    ids = new Set(
+      visible()
+        .filter(
+          (i) =>
+            (!p.get("asset") || i.assetId === p.get("asset")) &&
+            (!p.get("status") || i.status === p.get("status")),
+        )
+        .map((i) => i.id),
+    );
+  return state.findings.filter(
+    (f) =>
+      ids.has(f.inspectionId) &&
+      (!p.get("kind") ||
+        (isFeature(f) ? "feature" : "defect") === p.get("kind")) &&
+      (!p.get("discipline") || f.discipline === p.get("discipline")) &&
+      (!p.get("q") ||
+        [
+          f.reference,
+          f.observation,
+          f.tag,
+          recordTitle(f),
+          inspection(f.inspectionId).reference,
+          asset(inspection(f.inspectionId).assetId).name,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(p.get("q").toLowerCase())),
+  );
+}
+function summaryRows(records) {
+  const map = new Map();
+  for (const f of records) {
+    const i = inspection(f.inspectionId),
+      a = asset(i.assetId),
+      key = a.id + ":" + (f.component || "unspecified");
+    if (!map.has(key))
+      map.set(key, {
+        asset: a.identifier,
+        name: a.name,
+        component: COMPONENTS[f.component] || "Unspecified",
+        features: 0,
+        defects: 0,
+        high: 0,
+        medium: 0,
+        low: 0,
+      });
+    const row = map.get(key);
+    row[isFeature(f) ? "features" : "defects"]++;
+    if (!isFeature(f)) row[f.severity]++;
+  }
+  return [...map.values()];
+}
+function exportRows(records) {
+  return [
+    [
+      "Inspection",
+      "Reference",
+      "Record type",
+      "Discipline",
+      "Component",
+      "Equipment tag",
+      "Defect category",
+      "Preliminary severity",
+      "Evidence file",
+      "Evidence type",
+      "Rectangle X (normalized)",
+      "Rectangle Y (normalized)",
+      "Rectangle width (normalized)",
+      "Rectangle height (normalized)",
+      "Observation",
+      "Follow-up",
+    ],
+    ...records.map((f) => [
+      inspection(f.inspectionId).reference,
+      f.reference,
+      isFeature(f) ? "Feature" : "Defect",
+      DISCIPLINES[f.discipline] || DISCIPLINES.general,
+      COMPONENTS[f.component] || "",
+      f.tag || "",
+      isFeature(f) ? "" : CATEGORIES[f.category],
+      isFeature(f) ? "" : SEVERITIES[f.severity],
+      photo(f.photoId).name,
+      EVIDENCE_TYPES[photo(f.photoId).evidenceType || "photo"],
+      f.x,
+      f.y,
+      f.width,
+      f.height,
+      f.observation,
+      f.recommendation,
+    ]),
+  ];
+}
+function downloadCsv(name, rows) {
+  const safe = (v) => {
+    let s = String(v ?? "");
+    if (/^[\t\r\n]/.test(s) || /^\s*[=+@-]/.test(s)) s = "'" + s;
+    return '"' + s.replace(/"/g, '""') + '"';
+  };
+  download(
+    name,
+    "\uFEFF" + rows.map((r) => r.map(safe).join(",")).join("\r\n"),
+    "text/csv;charset=utf-8",
+  );
+}
+function analyticsPage() {
+  const records = filteredRecords(),
+    summary = summaryRows(records),
+    params = new URLSearchParams(location.hash.split("?")[1] || ""),
+    page = Math.max(1, Math.floor(Number(params.get("page")) || 1)),
+    pages = Math.max(1, Math.ceil(records.length / 25)),
+    current = Math.min(page, pages);
+  return (
+    heading(
+      "DATA REVIEW / SPREADSHEETS",
+      "Analysis & worklist",
+      "Filter saved records, review asset/component counts, and export spreadsheet-ready evidence.",
+      button("workbook", "Download Excel XML workbook", "", "secondary") +
+        button("records-csv", "Export filtered CSV"),
+    ) +
+    `<section class="panel"><form class="filter-bar analytics-filter" data-form="analytics-filter"><input name="q" aria-label="Search worklist" value="${esc(params.get("q") || "")}" placeholder="Search tag, observation, reference…"><select name="asset" aria-label="Filter asset"><option value="">All assets</option>${state.assets.map((a) => `<option value="${a.id}" ${params.get("asset") === a.id ? "selected" : ""}>${esc(a.identifier)}</option>`).join("")}</select><select name="status" aria-label="Filter inspection status"><option value="">All statuses</option>${options(STATUS, params.get("status"))}</select><select name="kind" aria-label="Filter record type"><option value="">Defects & features</option>${options({ defect: "Defects", feature: "Features" }, params.get("kind"))}</select><select name="discipline" aria-label="Filter discipline"><option value="">All disciplines</option>${options(DISCIPLINES, params.get("discipline"))}</select><button class="btn secondary">Apply worklist filters</button></form></section><div class="stats-grid">${[
+      ["Matching records", records.length],
+      ["Defect indications", records.filter((f) => !isFeature(f)).length],
+      ["Identified features", records.filter(isFeature).length],
+      [
+        "High preliminary severity",
+        records.filter((f) => !isFeature(f) && f.severity === "high").length,
+      ],
+    ]
+      .map(
+        ([name, n]) =>
+          `<div class="stat-card"><div class="stat-label">${name}</div><div class="stat-value">${n}</div></div>`,
+      )
+      .join(
+        "",
+      )}</div><section class="panel"><div class="panel-heading"><h2>Asset / component summary</h2>${button("summary-csv", "Export summary CSV", "", "secondary")}</div><div class="table-scroll"><table><thead><tr><th>Asset</th><th>Component</th><th>Features</th><th>Defects</th><th>High / Medium / Low</th></tr></thead><tbody>${summary.map((r) => `<tr><td>${esc(r.asset)}<span class="table-secondary">${esc(r.name)}</span></td><td>${r.component}</td><td>${r.features}</td><td>${r.defects}</td><td>${r.high} / ${r.medium} / ${r.low}</td></tr>`).join("") || '<tr><td colspan="5">No matching saved records.</td></tr>'}</tbody></table></div></section><section class="panel"><div class="panel-heading"><h2>Evidence worklist · ${records.length} records</h2><span>Page ${current} / ${pages}</span></div><div class="table-scroll"><table><thead><tr><th>Inspection / Record</th><th>Type / Component</th><th>Discipline / Tag</th><th>Observation</th><th>Open</th></tr></thead><tbody>${
+      records
+        .slice((current - 1) * 25, current * 25)
+        .map(
+          (f) =>
+            `<tr><td>${esc(inspection(f.inspectionId).reference)}<span class="table-secondary">${esc(f.reference)}</span></td><td>${isFeature(f) ? "Feature" : "Defect"} · ${recordTitle(f)}</td><td>${DISCIPLINES[f.discipline] || "General"}<span class="table-secondary">${esc(f.tag || "No tag")}</span></td><td class="worklist-observation">${esc(f.observation.slice(0, 160))}</td><td><a href="#/photo/${f.photoId}" class="text-link">Open evidence</a></td></tr>`,
+        )
+        .join("") || '<tr><td colspan="5">No matching records.</td></tr>'
+    }</tbody></table></div><div class="pagination">${button("worklist-page", "Previous", `data-page="${Math.max(1, current - 1)}"`, "secondary")}<span>25 records per page</span>${button("worklist-page", "Next", `data-page="${Math.min(pages, current + 1)}"`, "secondary")}</div></section><p class="note-small">Counts describe saved annotations, not verified engineering condition. This browser demo has bounded local storage and is not an industrial large-volume processing platform. CSV imports into Excel or Google Sheets; the multi-sheet XML workbook is Excel SpreadsheetML, not .xlsx.</p>`
+  );
+}
+function excelWorkbook() {
+  const records = filteredRecords(),
+    s = summaryRows(records),
+    visibleIds = new Set(visible().map((i) => i.id));
+  const sheets = {
+    Findings: exportRows(records),
+    "Asset summary": [
+      [
+        "Asset",
+        "Name",
+        "Component",
+        "Features",
+        "Defects",
+        "High",
+        "Medium",
+        "Low",
+      ],
+      ...s.map((r) => [
+        r.asset,
+        r.name,
+        r.component,
+        r.features,
+        r.defects,
+        r.high,
+        r.medium,
+        r.low,
+      ]),
+    ],
+    QA: [
+      [
+        "Inspection",
+        "Status",
+        "Inspector checks complete",
+        "Reviewer checks complete",
+        "Condition",
+        "Reference family",
+        "Document/revision/clause",
+      ],
+      ...visible().map((i) => [
+        i.reference,
+        STATUS[i.status],
+        qaComplete(i, "inspector") ? "Yes" : "No",
+        qaComplete(i, "reviewer") ? "Yes" : "No",
+        CONDITIONS[i.assessment?.condition || "unassessed"],
+        i.assessment?.family || "none",
+        i.assessment?.reference || "",
+      ]),
+    ],
+    Measurements: [
+      [
+        "Inspection",
+        "Label",
+        "Source",
+        "Distance",
+        "Model units",
+        "Synthetic",
+        "Calibration status",
+      ],
+      ...(state.measurements || [])
+        .filter((m) => visibleIds.has(m.inspectionId))
+        .map((m) => [
+          inspection(m.inspectionId).reference,
+          m.name,
+          m.source,
+          m.distance,
+          m.unit,
+          m.synthetic ? "Yes" : "No",
+          m.synthetic
+            ? "Synthetic known coordinates"
+            : "User-declared units; accuracy unverified",
+        ]),
+    ],
+  };
+  const xmlEsc = (v) =>
+    String(v)
+      .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "")
+      .replace(
+        /[&<>"']/g,
+        (c) =>
+          ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&apos;",
+          })[c],
+      );
+  const xml =
+    '<?xml version="1.0" encoding="UTF-8"?>\n<?mso-application progid="Excel.Sheet"?>\n<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' +
+    Object.entries(sheets)
+      .map(
+        ([name, rows]) =>
+          `<Worksheet ss:Name="${name}"><Table>${rows.map((row) => "<Row>" + row.map((value) => `<Cell><Data ss:Type="${typeof value === "number" && Number.isFinite(value) ? "Number" : "String"}">${xmlEsc(value)}</Data></Cell>`).join("") + "</Row>").join("")}</Table></Worksheet>`,
+      )
+      .join("") +
+    "</Workbook>";
+  download("AssetInspect-workbook.xml", xml, "application/xml;charset=utf-8");
+}
+function jobGuide() {
+  return `<section class="panel padded job-guide"><h2>Job-aligned workbenches</h2><div class="guide-grid"><div class="guide-card"><h3>Defects & features</h3><p>Choose Defect or Feature, then add mechanical/structural/hydraulic discipline, component and equipment tag. Drawings and P&ID-style evidence use the same manual editor.</p></div><div class="guide-card"><h3>QA & assessment</h3><p>Inspector checks are required for submission and clear after evidence edits. Reviewer checks are required for approval. Record preliminary rationale, limitations and supplied document references.</p></div><div class="guide-card"><h3>Data & 3D</h3><p>Use Analysis & worklist for filters, CSV and an Excel XML workbook. The 3D lab imports XYZ/CSV, ASCII PLY and OBJ geometry, with explicitly declared model-coordinate units.</p></div></div><p class="prose">This file does not reconstruct photogrammetry, read native DWG/RVT/NWD/RCP/RCS/LAS/LAZ, apply licensed inspection codes or certify measurement accuracy. Original AutoCAD/Navisworks/Recap proficiency and real standards-based engineering assessment require separate software, data and qualified verification.</p></section>`;
+}
+async function jobForm(form, data, value) {
+  const kind = form.dataset.form;
+  if (kind === "analytics-filter") {
+    dirty = false;
+    location.hash =
+      "#/analytics?" + new URLSearchParams(Object.fromEntries(data));
+    return true;
+  }
+  if (kind === "qa") {
+    await mutate(() => {
+      const i = inspection(form.dataset.id),
+        role = form.dataset.qaRole;
+      assert(
+        i &&
+          i.version === Number(form.dataset.version) &&
+          (role === "inspector" ? editable(i) : reviewable(i)),
+        "QA is unavailable or the inspection changed. Reload before saving.",
+      );
+      i.qa = i.qa || emptyQa();
+      i.qa[role] = Object.fromEntries(
+        Object.keys(QA_CHECKS[role]).map((key) => [key, data.has(key)]),
+      );
+      i.qa[role + "At"] = now();
+      touch(i, false);
+      event(
+        i,
+        role === "inspector" ? "Inspector QA saved" : "Reviewer QA saved",
+        `${Object.values(i.qa[role]).filter(Boolean).length}/${Object.keys(QA_CHECKS[role]).length} manual checks completed.`,
+      );
+    }, "QA checklist saved.");
+    return true;
+  }
+  if (kind === "assessment") {
+    await mutate(() => {
+      const i = requireEditable(form.dataset.id, form.dataset.version),
+        a = referenceAssessment(Object.fromEntries(data));
+      assert(
+        a.framework === "demo" || (a.reference && a.criteria),
+        "Supply the document reference and criteria for a client/reference-based assessment.",
+      );
+      assert(
+        a.family === "none" || a.reference,
+        "A reference family requires a supplied document / revision / clause.",
+      );
+      assert(
+        a.condition === "unassessed" || a.rationale,
+        "Explain the preliminary condition / action using saved evidence.",
+      );
+      assert(a.limitations, "Record the evidence and scope limitations.");
+      i.assessment = a;
+      touch(i);
+      event(
+        i,
+        "Assessment basis updated",
+        `${a.framework} · ${a.family} · ${CONDITIONS[a.condition]}; reference metadata only.`,
+      );
+    }, "Assessment basis saved.");
+    return true;
+  }
+  if (kind === "geometry-import" || kind === "measurement")
+    return geometryForm(form, data, value);
+  return false;
+}
+async function jobAction(action, b) {
+  if (action === "assessment") {
+    assessmentDialog(b.dataset.id);
+    return true;
+  }
+  if (action === "synthetic-pid") {
+    await mutate(() => {
+      const i = requireEditable(b.dataset.id);
+      state.photos.push({
+        id: uuid(),
+        inspectionId: i.id,
+        name: "synthetic-process-diagram.jpg",
+        caption:
+          "SYNTHETIC DEMO · P&ID-style symbol exercise; not a design drawing",
+        dataUrl: syntheticPid(),
+        width: 1400,
+        height: 900,
+        evidenceType: "pid",
+        at: now(),
+      });
+      touch(i);
+      event(
+        i,
+        "Synthetic P&ID-style evidence added",
+        "Illustrative process symbols for manual component annotation.",
+      );
+    }, "Synthetic diagram added.");
+    return true;
+  }
+  if (action === "records-csv") {
+    downloadCsv(
+      "AssetInspect-filtered-records.csv",
+      exportRows(filteredRecords()),
+    );
+    return true;
+  }
+  if (action === "summary-csv") {
+    downloadCsv("AssetInspect-asset-summary.csv", [
+      [
+        "Asset",
+        "Name",
+        "Component",
+        "Features",
+        "Defects",
+        "High",
+        "Medium",
+        "Low",
+      ],
+      ...summaryRows(filteredRecords()).map((r) => [
+        r.asset,
+        r.name,
+        r.component,
+        r.features,
+        r.defects,
+        r.high,
+        r.medium,
+        r.low,
+      ]),
+    ]);
+    return true;
+  }
+  if (action === "workbook") {
+    excelWorkbook();
+    return true;
+  }
+  if (action === "worklist-page") {
+    const p = new URLSearchParams(location.hash.split("?")[1] || "");
+    p.set("page", b.dataset.page);
+    location.hash = "#/analytics?" + p;
+    return true;
+  }
+  if (action === "delete-measurement") {
+    const m = state.measurements.find((m) => m.id === b.dataset.id);
+    if (m && confirm("Delete this saved model-coordinate measurement?"))
+      await mutate(() => {
+        const i = requireEditable(m.inspectionId);
+        state.measurements = state.measurements.filter((v) => v.id !== m.id);
+        touch(i);
+        event(i, "Model measurement deleted", m.name);
+      }, "Measurement deleted.");
+    return true;
+  }
+  return geometryAction(action, b);
+}
+
+  /* Local geometry viewer. Distances use supplied coordinates, never image pixels. */
+const GEOMETRY_LIMITS = {
+  vertices: 20000,
+  faces: 20000,
+  bytes: 8 * 1024 * 1024,
+};
+function validateGeometry(raw) {
+  assert(
+    raw &&
+      Array.isArray(raw.vertices) &&
+      raw.vertices.length >= 2 &&
+      raw.vertices.length <= GEOMETRY_LIMITS.vertices,
+    "Geometry needs 2–20,000 vertices.",
+  );
+  assert(
+    typeof raw.name === "string" &&
+      raw.name.length <= 255 &&
+      ["m", "cm", "mm", "unknown"].includes(raw.unit),
+    "Invalid model name or units.",
+  );
+  const vertices = raw.vertices.map((v) => {
+    assert(
+      Array.isArray(v) &&
+        v.length === 3 &&
+        v.every((n) => Number.isFinite(n) && Math.abs(n) <= 1e9),
+      "Coordinates must be finite numbers within ±1 billion model units.",
+    );
+    return [...v];
+  });
+  const faces = raw.faces || [];
+  assert(
+    Array.isArray(faces) && faces.length <= GEOMETRY_LIMITS.faces,
+    "At most 20,000 triangles are supported.",
+  );
+  for (const face of faces)
+    assert(
+      Array.isArray(face) &&
+        face.length === 3 &&
+        face.every((n) => Number.isInteger(n) && n >= 0 && n < vertices.length),
+      "A face references a missing vertex.",
+    );
+  return {
+    id:
+      typeof raw.id === "string" && /^[a-zA-Z0-9_-]{1,80}$/.test(raw.id)
+        ? raw.id
+        : uuid(),
+    name: raw.name,
+    format: String(raw.format || "geometry").slice(0, 40),
+    unit: raw.unit,
+    synthetic: raw.synthetic === true,
+    vertices,
+    faces: faces.map((f) => [...f]),
+  };
+}
+function syntheticGeometry() {
+  const vertices = [],
+    faces = [],
+    count = 32;
+  // 2 m pipe with flanges. Known dimensions are illustrative, not a field survey.
+  for (const [x, r] of [
+    [0, 0.5],
+    [0.1, 0.5],
+    [0.1, 0.32],
+    [1.9, 0.32],
+    [1.9, 0.5],
+    [2, 0.5],
+  ])
+    for (let k = 0; k < count; k++)
+      vertices.push([
+        x,
+        r * Math.cos((k * 2 * Math.PI) / count),
+        r * Math.sin((k * 2 * Math.PI) / count),
+      ]);
+  for (let ring = 0; ring < 5; ring++)
+    for (let k = 0; k < count; k++) {
+      const a = ring * count + k,
+        b = ring * count + ((k + 1) % count),
+        c = b + count,
+        d = a + count;
+      faces.push([a, b, c], [a, c, d]);
+    }
+  return validateGeometry({
+    id: uuid(),
+    name: "SYNTHETIC · 2 m pipe and flange assembly",
+    format: "Synthetic mesh",
+    unit: "m",
+    synthetic: true,
+    vertices,
+    faces,
+  });
+}
+function parseGeometry(source, filename, unit) {
+  assert(
+    typeof source === "string" &&
+      source.length <= GEOMETRY_LIMITS.bytes &&
+      !source.includes("\0"),
+    "Use a text XYZ/CSV, ASCII PLY or OBJ file of at most 8 MB.",
+  );
+  const lines = source.replace(/^\uFEFF/, "").split(/\r?\n/),
+    extension = filename.split(".").pop().toLowerCase(),
+    vertices = [],
+    faces = [];
+  const addVertex = (values) => {
+    assert(
+      values.length >= 3 &&
+        values.slice(0, 3).every((v) => String(v).trim() !== ""),
+      "A coordinate row is incomplete.",
+    );
+    vertices.push(values.slice(0, 3).map(Number));
+    assert(
+      vertices.length <= GEOMETRY_LIMITS.vertices,
+      "Maximum 20,000 vertices. Export a smaller / decimated model.",
+    );
+  };
+  const addPolygon = (indices) => {
+    assert(
+      indices.length >= 3 && indices.length <= 64,
+      "Faces need 3–64 vertex indices.",
+    );
+    for (let k = 1; k < indices.length - 1; k++)
+      faces.push([indices[0], indices[k], indices[k + 1]]);
+    assert(
+      faces.length <= GEOMETRY_LIMITS.faces,
+      "Maximum 20,000 triangles. Export a smaller model.",
+    );
+  };
+  if (extension === "obj") {
+    for (const line of lines) {
+      const parts = line.split("#")[0].trim().split(/\s+/);
+      if (parts[0] === "v") {
+        assert(
+          parts.length === 4 || (parts.length === 5 && Number(parts[4]) === 1),
+          "Export OBJ xyz vertices with no homogeneous weight, or weight 1. Vertex colours are not imported.",
+        );
+        addVertex(parts.slice(1));
+      } else if (parts[0] === "f")
+        addPolygon(
+          parts.slice(1).map((token) => {
+            const n = Number(token.split("/")[0]);
+            assert(Number.isInteger(n) && n !== 0, "Invalid OBJ face index.");
+            return n > 0 ? n - 1 : vertices.length + n;
+          }),
+        );
+    }
+  } else if (extension === "ply") {
+    assert(lines[0]?.trim() === "ply", "PLY header is missing.");
+    const end = lines.findIndex((l) => l.trim() === "end_header");
+    assert(
+      end > 0 &&
+        end < 300 &&
+        lines.slice(0, end).some((l) => /^format ascii 1\.0\s*$/.test(l)),
+      "Only ASCII PLY 1.0 is supported; export binary PLY as ASCII first.",
+    );
+    const elements = [];
+    let current = null;
+    for (const line of lines.slice(1, end)) {
+      const p = line.trim().split(/\s+/);
+      if (p[0] === "element") {
+        assert(
+          Number.isSafeInteger(Number(p[2])) && Number(p[2]) >= 0,
+          "Invalid PLY element count.",
+        );
+        current = { name: p[1], count: Number(p[2]), properties: [] };
+        elements.push(current);
+      } else if (p[0] === "property") {
+        assert(current, "Invalid PLY property.");
+        current.properties.push(p.slice(1));
+      }
+    }
+    let cursor = end + 1;
+    for (const element of elements) {
+      assert(
+        ["vertex", "face"].includes(element.name),
+        "PLY supports vertex and face elements only; export without other element types.",
+      );
+      if (element.name === "vertex") {
+        assert(
+          element.count <= GEOMETRY_LIMITS.vertices &&
+            element.properties.every((p) => p[0] !== "list"),
+          "Unsupported vertex properties or oversized point cloud.",
+        );
+        const indices = ["x", "y", "z"].map((name) =>
+          element.properties.findIndex((p) => p.at(-1) === name),
+        );
+        assert(
+          indices.every((n) => n >= 0),
+          "PLY must include x, y and z properties.",
+        );
+        for (let k = 0; k < element.count; k++) {
+          const values = (lines[cursor++] || "").trim().split(/\s+/);
+          assert(
+            values.length >= element.properties.length,
+            "PLY vertex data is incomplete.",
+          );
+          addVertex(indices.map((n) => values[n]));
+        }
+      } else {
+        assert(
+          element.count <= GEOMETRY_LIMITS.faces &&
+            element.properties.length === 1 &&
+            element.properties[0][0] === "list" &&
+            ["vertex_indices", "vertex_index"].includes(
+              element.properties[0].at(-1),
+            ),
+          "Export PLY faces with only a vertex_indices list.",
+        );
+        for (let k = 0; k < element.count; k++) {
+          const values = (lines[cursor++] || "")
+              .trim()
+              .split(/\s+/)
+              .map(Number),
+            n = values.shift();
+          assert(
+            Number.isInteger(n) && values.length === n,
+            "Invalid PLY face list.",
+          );
+          addPolygon(values);
+        }
+      }
+    }
+  } else {
+    assert(
+      ["xyz", "csv", "txt"].includes(extension),
+      "Supported formats: XYZ/CSV text, ASCII PLY and OBJ. Export native CAD/point-cloud files to one of these first.",
+    );
+    let headerSeen = false;
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const values = trimmed.includes(",")
+        ? trimmed.split(",").map((v) => v.trim())
+        : trimmed.split(/\s+/);
+      if (
+        !vertices.length &&
+        !headerSeen &&
+        values
+          .slice(0, 3)
+          .map((v) => v.toLowerCase())
+          .join(",") === "x,y,z"
+      ) {
+        headerSeen = true;
+        continue;
+      }
+      addVertex(values);
+    }
+  }
+  return validateGeometry({
+    id: uuid(),
+    name: filename,
+    format: extension.toUpperCase(),
+    unit,
+    synthetic: false,
+    vertices,
+    faces,
+  });
+}
+function geometryPage() {
+  const g = state.geometry,
+    targets = visible().filter(editable);
+  return (
+    heading(
+      "GEOMETRY / COORDINATE MEASUREMENTS",
+      "3D / point-cloud lab",
+      "Inspect local mesh / point-cloud geometry and measure distances in declared model units.",
+      button("geometry-synthetic", "Load synthetic pipe", "", "secondary"),
+    ) +
+    `<div class="notice">${g.synthetic ? "SYNTHETIC MODEL · Known-coordinate training example." : "LOCAL IMPORT · Coordinate scale is declared by you; field calibration and accuracy are unverified."} This viewer does not reconstruct 3D from photographs.</div><div class="geometry-layout"><section class="panel geometry-panel"><div class="geometry-toolbar"><strong>${esc(g.name)}</strong><span>${g.vertices.length.toLocaleString()} points · ${g.faces.length.toLocaleString()} triangles · ${g.unit === "unknown" ? "Units unknown" : g.unit}</span></div><div class="geometry-controls">${button("geometry-reset", "Reset view", "", "secondary")}${button("geometry-in", "Zoom +", "", "secondary")}${button("geometry-out", "Zoom −", "", "secondary")}<label><input id="geometry-picking" type="checkbox" checked> Pick A/B points</label></div><canvas id="geometry-canvas" aria-label="3D geometry viewport. Drag to rotate, shift-drag to pan; choose vertices with the point fields below." tabindex="0"></canvas><p class="note-small">Drag to rotate · Shift-drag to pan · Wheel / buttons to zoom · Click a point to pick A then B. Vertex numbers provide keyboard access. Blue = A, orange = B.</p></section><aside><section class="panel padded"><h2>Import local geometry</h2><form data-form="geometry-import"><label for="geometry-file">XYZ/CSV, ASCII PLY or OBJ</label><input id="geometry-file" name="geometryFile" type="file" accept=".xyz,.csv,.txt,.ply,.obj" required><label for="geometry-unit">Coordinate units from source</label><select id="geometry-unit" name="unit" required><option value="">Choose declared units</option>${options({ m: "Metres", cm: "Centimetres", mm: "Millimetres", unknown: "Unknown — viewing only" })}</select><p class="note-small">8 MB · 20,000 vertices · 20,000 triangles. Materials/textures and external file references are ignored. Import replaces the active model; saved measurements retain their endpoints.</p><button class="btn secondary full">Import geometry</button></form></section><section class="panel padded"><h2>Two-point coordinate distance</h2><form data-form="measurement"><input name="modelId" type="hidden" value="${g.id}"><div class="point-inputs"><label>Vertex A (0-based)<input id="point-a" name="pointA" type="number" min="0" max="${g.vertices.length - 1}" step="1" value="0" required></label><label>Vertex B (0-based)<input id="point-b" name="pointB" type="number" min="0" max="${g.vertices.length - 1}" step="1" value="${g.synthetic ? 160 : 1}" required></label></div><output id="geometry-distance" aria-live="polite"></output><p class="note-small">Euclidean distance in model coordinates. Decimal display does not establish measurement precision. Check source units, scale and registration independently.</p><label for="measurement-target">Save to editable inspection</label><select id="measurement-target" name="inspectionId" required><option value="">Choose inspection</option>${targets.map((i) => `<option value="${i.id}">${esc(i.reference)} · ${esc(asset(i.assetId).identifier)}</option>`).join("")}</select>${field("Measurement label", "name", "", "text", true, 140)}${area("Measurement context / limitations", "note", "", true, 1000)}<button class="btn primary full" ${g.unit === "unknown" || !targets.length ? "disabled" : ""}>Save coordinate measurement</button>${!targets.length ? '<p class="muted">Switch to Inspector and create a draft inspection to save a measurement.</p>' : ""}</form></section></aside></div><section class="panel padded"><h2>Supported engineering evidence</h2><p>OBJ meshes demonstrate inspection of exported CAD geometry; XYZ/CSV and ASCII PLY demonstrate point-cloud handling. Upload raster drawings, isometrics, P&IDs and CAD screenshots in an inspection to annotate equipment tags and features.</p><p class="note-small">Native AutoCAD/Navisworks/Recap formats, LAS/LAZ processing, calibrated survey metrology and photogrammetric reconstruction require separate tooling and validated source data.</p></section>`
+  );
+}
+function initGeometry() {
+  const canvas = $("#geometry-canvas"),
+    context = canvas.getContext("2d"),
+    g = state.geometry;
+  let yaw = -0.45,
+    pitch = 0.35,
+    zoom = 1,
+    pan = [0, 0],
+    projected = [],
+    pending = 0,
+    drag = null,
+    nextPoint = "a",
+    disposed = false;
+  const bounds = [0, 1, 2].map((k) => {
+    let min = Infinity,
+      max = -Infinity;
+    for (const p of g.vertices) {
+      min = Math.min(min, p[k]);
+      max = Math.max(max, p[k]);
+    }
+    return [min, max];
+  });
+  const center = bounds.map(([min, max]) => (min + max) / 2),
+    span = Math.max(...bounds.map(([min, max]) => max - min), 1e-9);
+  function selected() {
+    return ["a", "b"].map((k) => Number($("#point-" + k)?.value));
+  }
+  function updateDistance() {
+    const [a, b] = selected(),
+      p = g.vertices[a],
+      q = g.vertices[b],
+      out = $("#geometry-distance");
+    if (!out) return;
+    out.textContent =
+      p && q
+        ? `${Math.hypot(...p.map((v, k) => v - q[k])).toFixed(4)} ${g.unit === "unknown" ? "model units (undeclared)" : g.unit}`
+        : "Choose valid vertex indices.";
+    schedule();
+  }
+  function draw() {
+    pending = 0;
+    if (disposed) return;
+    const rect = canvas.getBoundingClientRect(),
+      w = rect.width,
+      h = rect.height,
+      dpr = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    context.fillStyle = "#102834";
+    context.fillRect(0, 0, w, h);
+    context.strokeStyle = "#213e4a";
+    context.lineWidth = 1;
+    for (let x = 0; x < w; x += 40) {
+      context.beginPath();
+      context.moveTo(x, 0);
+      context.lineTo(x, h);
+      context.stroke();
+    }
+    for (let y = 0; y < h; y += 40) {
+      context.beginPath();
+      context.moveTo(0, y);
+      context.lineTo(w, y);
+      context.stroke();
+    }
+    const scale = ((Math.min(w, h) * 0.65) / span) * zoom,
+      cy = Math.cos(yaw),
+      sy = Math.sin(yaw),
+      cp = Math.cos(pitch),
+      sp = Math.sin(pitch);
+    projected = g.vertices.map((v) => {
+      const [x, y, z] = v.map((n, k) => n - center[k]),
+        rx = cy * x + sy * z,
+        rz = -sy * x + cy * z;
+      return [
+        w / 2 + rx * scale + pan[0],
+        h / 2 - (cp * y - sp * rz) * scale + pan[1],
+        sp * y + cp * rz,
+      ];
+    });
+    if (g.faces.length) {
+      const ordered = g.faces
+        .map((f) => ({ f, z: f.reduce((s, k) => s + projected[k][2], 0) / 3 }))
+        .sort((a, b) => a.z - b.z);
+      for (const { f } of ordered) {
+        context.beginPath();
+        f.forEach((n, k) =>
+          k
+            ? context.lineTo(...projected[n].slice(0, 2))
+            : context.moveTo(...projected[n].slice(0, 2)),
+        );
+        context.closePath();
+        context.fillStyle = "#245967";
+        context.fill();
+        context.strokeStyle = "#4ba797";
+        context.lineWidth = 0.6;
+        context.stroke();
+      }
+    } else {
+      context.fillStyle = "#74d8c1";
+      for (const [x, y] of projected) context.fillRect(x - 1.5, y - 1.5, 3, 3);
+    }
+    const ids = selected();
+    if (ids.every((n) => projected[n])) {
+      context.beginPath();
+      context.moveTo(...projected[ids[0]].slice(0, 2));
+      context.lineTo(...projected[ids[1]].slice(0, 2));
+      context.strokeStyle = "#ffd887";
+      context.lineWidth = 2;
+      context.stroke();
+    }
+    ids.forEach((n, k) => {
+      if (!projected[n]) return;
+      const [x, y] = projected[n];
+      context.fillStyle = k ? "#ffbd62" : "#7cbcff";
+      context.beginPath();
+      context.arc(x, y, 6, 0, Math.PI * 2);
+      context.fill();
+      context.font = "bold 14px system-ui";
+      context.fillText((k ? "B" : "A") + ": " + n, x + 10, y - 10);
+    });
+    context.fillStyle = "#c2dedb";
+    context.font = "13px system-ui";
+    context.fillText(
+      `X / Y / Z model coordinates · ${g.synthetic ? "SYNTHETIC" : "Imported"} · ${g.unit}`,
+      18,
+      h - 18,
+    );
+  }
+  function schedule() {
+    if (!pending && !disposed) pending = requestAnimationFrame(draw);
+  }
+  function point(e) {
+    const r = canvas.getBoundingClientRect();
+    return [e.clientX - r.left, e.clientY - r.top];
+  }
+  canvas.addEventListener("pointerdown", (e) => {
+    drag = { start: point(e), last: point(e), moved: false, pan: e.shiftKey };
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const p = point(e),
+      dx = p[0] - drag.last[0],
+      dy = p[1] - drag.last[1];
+    if (Math.hypot(p[0] - drag.start[0], p[1] - drag.start[1]) > 4)
+      drag.moved = true;
+    if (drag.moved) {
+      if (drag.pan) {
+        pan[0] += dx;
+        pan[1] += dy;
+      } else {
+        yaw += dx * 0.008;
+        pitch = Math.max(-1.5, Math.min(1.5, pitch + dy * 0.008));
+      }
+      schedule();
+    }
+    drag.last = p;
+  });
+  canvas.addEventListener("pointerup", (e) => {
+    if (drag && !drag.moved && $("#geometry-picking").checked) {
+      const p = point(e);
+      let best = -1,
+        distance = 14;
+      projected.forEach(([x, y], k) => {
+        const d = Math.hypot(p[0] - x, p[1] - y);
+        if (d < distance) {
+          distance = d;
+          best = k;
+        }
+      });
+      if (best >= 0) {
+        $("#point-" + nextPoint).value = best;
+        nextPoint = nextPoint === "a" ? "b" : "a";
+        dirty = true;
+        updateDistance();
+      }
+    }
+    drag = null;
+  });
+  canvas.addEventListener("pointercancel", () => {
+    drag = null;
+  });
+  canvas.addEventListener(
+    "wheel",
+    (e) => {
+      e.preventDefault();
+      zoom = Math.max(0.1, Math.min(20, zoom * Math.exp(-e.deltaY * 0.001)));
+      schedule();
+    },
+    { passive: false },
+  );
+  canvas.addEventListener("keydown", (e) => {
+    if (
+      [
+        "ArrowLeft",
+        "ArrowRight",
+        "ArrowUp",
+        "ArrowDown",
+        "+",
+        "-",
+        "0",
+      ].includes(e.key)
+    ) {
+      e.preventDefault();
+      if (e.key === "ArrowLeft") yaw -= 0.1;
+      if (e.key === "ArrowRight") yaw += 0.1;
+      if (e.key === "ArrowUp") pitch -= 0.1;
+      if (e.key === "ArrowDown") pitch += 0.1;
+      if (e.key === "+") zoom = Math.min(20, zoom * 1.2);
+      if (e.key === "-") zoom = Math.max(0.1, zoom / 1.2);
+      if (e.key === "0") {
+        yaw = -0.45;
+        pitch = 0.35;
+        zoom = 1;
+        pan = [0, 0];
+      }
+      schedule();
+    }
+  });
+  for (const k of ["a", "b"])
+    $("#point-" + k).addEventListener("input", updateDistance);
+  const observer = new ResizeObserver(schedule);
+  observer.observe(canvas);
+  geometryView = {
+    dispose() {
+      disposed = true;
+      observer.disconnect();
+      cancelAnimationFrame(pending);
+    },
+    command(action) {
+      if (action === "geometry-reset") {
+        yaw = -0.45;
+        pitch = 0.35;
+        zoom = 1;
+        pan = [0, 0];
+      } else
+        zoom = Math.max(
+          0.1,
+          Math.min(20, zoom * (action === "geometry-in" ? 1.2 : 1 / 1.2)),
+        );
+      schedule();
+    },
+  };
+  updateDistance();
+}
+async function geometryForm(form, data, value) {
+  if (form.dataset.form === "geometry-import") {
+    const file = form.elements.geometryFile.files[0];
+    assert(
+      file && file.size <= GEOMETRY_LIMITS.bytes,
+      "Choose a geometry text file of at most 8 MB.",
+    );
+    assert(
+      ["m", "cm", "mm", "unknown"].includes(value("unit")),
+      "Declare source coordinate units.",
+    );
+    const geometry = parseGeometry(await file.text(), file.name, value("unit"));
+    await mutate(() => {
+      state.geometry = geometry;
+    }, `Imported ${geometry.vertices.length} model vertices.`);
+    return true;
+  }
+  if (form.dataset.form === "measurement") {
+    await mutate(
+      () => {
+        const i = requireEditable(value("inspectionId")),
+          g = state.geometry,
+          a = Number(value("pointA")),
+          b = Number(value("pointB"));
+        assert(
+          g.id === value("modelId"),
+          "The active model changed. Reload before measuring.",
+        );
+        assert(
+          ["m", "cm", "mm"].includes(g.unit),
+          "Measurement requires declared model units.",
+        );
+        assert(
+          Number.isInteger(a) &&
+            Number.isInteger(b) &&
+            g.vertices[a] &&
+            g.vertices[b] &&
+            a !== b,
+          "Select two different valid vertices.",
+        );
+        assert(
+          value("name") &&
+            value("name").length <= 140 &&
+            value("note") &&
+            value("note").length <= 1000,
+          "Add a measurement label and its context / limitations.",
+        );
+        const p = g.vertices[a],
+          q = g.vertices[b],
+          distance = Math.hypot(...p.map((n, k) => n - q[k]));
+        assert(distance > 0, "Selected points have identical coordinates.");
+        state.measurements.push({
+          id: uuid(),
+          inspectionId: i.id,
+          name: value("name"),
+          source: g.name,
+          unit: g.unit,
+          a: [...p],
+          b: [...q],
+          distance,
+          synthetic: g.synthetic,
+          note: value("note"),
+          at: now(),
+        });
+        touch(i);
+        event(
+          i,
+          "Model-coordinate distance saved",
+          `${value("name")}: ${distance.toFixed(4)} ${g.unit}; ${g.synthetic ? "synthetic example" : "calibration / accuracy unverified"}.`,
+        );
+      },
+      "Model-coordinate measurement saved.",
+      `#/inspection/${value("inspectionId")}`,
+    );
+    return true;
+  }
+  return false;
+}
+async function geometryAction(action) {
+  if (["geometry-reset", "geometry-in", "geometry-out"].includes(action)) {
+    geometryView?.command(action);
+    return true;
+  }
+  if (action === "geometry-synthetic") {
+    if (!allowAbandon()) return true;
+    await mutate(() => {
+      state.geometry = syntheticGeometry();
+    }, "Synthetic model loaded.");
+    return true;
+  }
+  return false;
+}
+
   start().catch((error) => {
     $("#app").innerHTML =
       `<main class="startup"><h1>Could not open the demo</h1><p>${esc(error.message)}</p><p>Try the original file in a current desktop Chrome or Edge browser.</p></main>`;

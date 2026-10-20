@@ -23,6 +23,13 @@ def outputs():
     css = (ROOT / "inspections/static/inspections/app.css").read_text(encoding="utf-8")
     css += "\n" + (TARGET / "src/offline.css").read_text(encoding="utf-8")
     script = (TARGET / "src/offline.js").read_text(encoding="utf-8")
+    script = script.replace(
+        "/* @@JOB_TOOLS@@ */",
+        (TARGET / "src/job-tools.js").read_text(encoding="utf-8"),
+    )
+    script = script.replace(
+        "/* @@GEOMETRY@@ */", (TARGET / "src/geometry.js").read_text(encoding="utf-8")
+    )
     for token, content in {
         "@@CSS@@": css,
         "@@ICONS@@": icons,
