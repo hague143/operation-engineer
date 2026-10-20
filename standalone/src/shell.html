@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101f2c">
+  <meta name="description" content="AssetInspect: an interactive offline portfolio demonstration of visual infrastructure inspection.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>AssetInspect · Offline portfolio demo</title>
+  <link rel="icon" href="@@MARK@@">
+  <style>@@CSS@@</style>
+</head>
+<body>
+@@ICONS@@
+<a href="#main" class="skip-link">Skip to content</a>
+<div id="app"><main class="startup"><h1>AssetInspect</h1><p>Preparing the offline portfolio demo…</p><noscript>Enable JavaScript to use this interactive demo. No network connection is needed.</noscript></main></div>
+<div id="feedback" class="offline-toast" role="status" aria-live="polite" hidden></div>
+<dialog id="form-dialog" aria-labelledby="dialog-title"></dialog>
+<input type="file" id="restore-input" accept="application/json,.json" hidden>
+<script type="application/json" id="initial-data">null</script>
+<script>
+@@SCRIPT@@
+</script>
+</body>
+</html>

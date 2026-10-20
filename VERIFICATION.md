@@ -27,3 +27,13 @@ The browser script creates persistent `E2E-…` synthetic records in the local d
 - Vercel account credentials are not available here. Hosted environment-variable entry and the actual redeployment remain user actions; this records local deployment-path verification, not a successful hosted Vercel build.
 
 GitHub Actions is configured to run the Django checks/tests. This document records local verification; it does not claim a hosted Actions run, production deployment, other-browser verification, or restoration in a new cloud task.
+
+## Standalone recruiter edition — 20 October 2026
+
+- Built `standalone/AssetInspect.html` with embedded CSS/JavaScript/icons and locally generated synthetic example images. Packaged the HTML and `README.txt` into `standalone/AssetInspect-demo.zip`; no local database, secrets, user photographs, or runtime dependencies are in the download.
+- `scripts/browser_standalone.py --virtual-origin` passed with Chromium network offline and no external HTTP requests or browser JavaScript errors. The complete asset → inspection → upload → annotation → submit → request changes → resubmit → approve workflow ran with persisted local history and locked states.
+- Verified mouse, touch, and keyboard rectangles; saved alignment after reload at 1440/768/390 px; invalid upload rejection; multiple findings and confirmed deletion; explicit no-defect submission; CSV formula protection; and approved/unapproved printed PDFs.
+- Opened an exported shareable HTML in a fresh recipient browser context and verified its saved photographs/findings. Backup/restore and the storage-disabled temporary-session warning also passed.
+- Rasterized and visually inspected a generated report photograph page. Browser print output preserved the numbered severity rectangle, wrapped finding text, and reviewer history. Screenshots/PDF/CSV/shared test files live in ignored `test-results/standalone/`.
+- The managed runner blocks direct `file://` navigation. Tests used the exact HTML bytes at an intercepted loopback origin with the network offline and no HTTP server. Browser policies were not changed; direct-file opening remains unverified in this managed runner. The download is self-contained for normal browser use, and corporate restrictions are documented in the standalone guide.
+- Existing Django suite: **47 tests passed**. Deterministic standalone build checks also passed and are included in CI. Inspector/Reviewer roles in this offline edition are explicitly simulated, not secure authentication or a shared multi-user service.

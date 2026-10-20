@@ -25,6 +25,10 @@ Use **Python 3.12** (tested on 3.12.14) and Git. Exact tested dependency version
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for the required four environment variables and Redeploy steps. The repository supports an explicit **temporary Vercel demo** with built synthetic data, exact deployment hostnames, secure login, static assets, authenticated private photos, and exports. Vercel demo changes/uploads can reset or differ between instances; local development below keeps permanent SQLite/filesystem saving. Never upload your local `.env`, database, or private media to fix a deployment error.
 
+## One-file demo for job applications
+
+Download [AssetInspect-demo.zip](standalone/AssetInspect-demo.zip), extract it, and open `AssetInspect.html` in a current desktop browser. This separate offline portfolio edition needs no installation, password, hosting, or Internet. It demonstrates the full workflow with simulated Inspector/Reviewer roles, local browser persistence, photograph annotations, Print / Save PDF, and CSV exports. **Download shareable HTML** inside the app embeds your saved example/photos into a new portable file for a recruiter. See the [standalone guide](standalone/README.md) for the walkthrough, storage limits, sharing note, and browser-test instructions. The Django application below provides the actual server-side authentication and permission controls.
+
 ## Windows PowerShell setup
 
 From the directory containing your projects:
